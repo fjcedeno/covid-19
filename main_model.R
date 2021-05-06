@@ -308,8 +308,8 @@ ckt=c("R_UMBRAL",'DIMINUCION_SOTENIDA_2SEM','DIMINUCION_SOTENIDA_3SEM','TASA_PRO
 trainData[ , (fkt) := lapply(.SD, factor,levels=c("1","2","3","4")), .SDcols = fkt]
 trainData[ , (ckt) := lapply(.SD, factor,levels=c("TRUE","FALSE")), .SDcols = ckt]
 trainData<-split(trainData,by="CLUSTER")
-#mod<-parallel::parLapply(cl=clust,trainData,fun=funciones_naive_bayes)
-mod<-parallel::parLapply(cl=clust,trainData,fun=funciones_naive_bayes_dev)
+mod<-parallel::parLapply(cl=clust,trainData,fun=funciones_naive_bayes)
+#mod<-parallel::parLapply(cl=clust,trainData,fun=funciones_naive_bayes_dev)
 
 message("Entrenamiento de los modelos ready")
 testData<-list()
@@ -401,8 +401,8 @@ for(i in unique(names(testData)))
   testData[[i]][ , (cols_2) := lapply(.SD, factor,levels=c("TRUE","FALSE")), .SDcols = cols_2]
   
   #testData[[i]][ , (ckt) := lapply(.SD, function(x)return(x-1)), .SDcols = ckt]
-  #pred[[i]] <- funciones_prediccion_modelo(mod=mod[[as.character(cluster[CODIGO_COMUNA ==i]$CLUSTER)]], testData=testData[[i]])
-  pred[[i]] <- funciones_prediccion_modelo_dev(mod=mod[[as.character(cluster[CODIGO_COMUNA ==i]$CLUSTER)]], testData=testData[[i]])
+  pred[[i]] <- funciones_prediccion_modelo(mod=mod[[as.character(cluster[CODIGO_COMUNA ==i]$CLUSTER)]], testData=testData[[i]])
+  #pred[[i]] <- funciones_prediccion_modelo_dev(mod=mod[[as.character(cluster[CODIGO_COMUNA ==i]$CLUSTER)]], testData=testData[[i]])
   pred[[i]]<-data.table::setDT(as.data.frame(pred[[i]]))
   data.table::setnames(pred[[i]],old=c("-1","0","1"),new=c("bajar","mantenerse","subir"),skip_absent = TRUE)
   pred[[i]][,ESCENARIOS:=ESCENARIOS]
