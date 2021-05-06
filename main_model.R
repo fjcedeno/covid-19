@@ -426,7 +426,7 @@ for(i in unique(names(testData)))
   pred_cast[PASO_PROB=="TRUE",c('subir_NORMAL','mantenerse_NORMAL','bajar_NORMAL','subir_OPTIMISTA','mantenerse_OPTIMISTA','bajar_OPTIMISTA','subir_PESIMISTA','mantenerse_PESIMISTA','bajar_PESIMISTA'):=list(0,1,0,0,1,0,0,1,0)]
   pred_cast<-pred_cast[,c('KEY','CODIGO_COMUNA','PASO','SEMANA','FECHA','subir_NORMAL','mantenerse_NORMAL','bajar_NORMAL','subir_OPTIMISTA','mantenerse_OPTIMISTA','bajar_OPTIMISTA','subir_PESIMISTA','mantenerse_PESIMISTA','bajar_PESIMISTA'),with=FALSE]
   data.table::setnames(pred_cast,"PASO", "Fase Actual")
-  openxlsx::write.xlsx(pred_cast,paste0("output_pred_",Sys.Date(),"_.xlsx"))
+  openxlsx::write.xlsx(pred_cast,paste0("./Report/output_pred_",Sys.Date(),"_.xlsx"))
 }
 
 end_time=Sys.time()
