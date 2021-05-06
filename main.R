@@ -1,0 +1,505 @@
+#0. SET WORKING DIRECTORY,CLEAN SCREEN, REMOVE VARIABLES----
+setwd('~/covid-19')
+cat("\014") 
+graphics.off()
+rm(list = ls())
+options(java.parameters = "-Xmx8g")
+options(encoding = 'UTF-8')
+#install.packages("fMarkovSwitching", repos="http://R-Forge.R-project.org")
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(scales)
+library(forecast)
+library(reshape)
+library(fMarkovSwitching)
+source("helper_scraper.R")
+source("helper_hana.R")
+source("funciones.R")
+source('~/connections/connections.R')
+
+hanaConnection<-hana_connect()
+
+actualizar=TRUE
+descargar=TRUE
+marcoTotal<-data.table::setDT(openxlsx::read.xlsx("divisionPoliticoTerritorial.xlsx") )
+
+#1.	DESCARGAR DATA DEL MIMISTERIO DE SALUD ----
+
+if(descargar)
+{
+  html<-"https://github.com/MinCiencia/Datos-COVID19"
+  productos<-scraper_files_product(html)
+  productos<-unique(productos)
+  productos<-productos[c(1,2,15,41,4,7,52,54,18,65,25,13,19,26,27,45,74)]
+  descripcion_productos<-scraper_files_desc(html)
+  descripcion<-data.table::data.table(descripcion_productos=descripcion_productos)
+  descripcion[,producto:=unlist(strsplit(descripcion_productos,"-"))[1],by=seq_len(nrow(descripcion))]
+  data.table::fwrite(descripcion,file ="./data/desc_producto.csv" ,sep=";",dec=",")
+  
+  for(i in 1:length(productos))
+  {
+    assign(productos[i], funciones_download_csv_github(product=productos[i]))
+    covid.file<-get(productos[i])
+    files<-names(covid.file)
+    if(length(files)>0)
+    {
+      for(j in files)
+      {
+        data.table::fwrite(covid.file[[j]],file = paste0("./data/",productos[i],"_",j),sep=";",dec=",")
+      } 
+    }
+    
+    
+    
+    
+  }  
+}
+
+
+# 2. ORDENAR LA DATA ----
+
+
+# 2.1 casos nuevos por comuna  ----
+CasosActualesPorComuna<-data.table::fread("./data/producto1_Covid-19_std.csv",sep=";",dec=",")
+data.table::setnames(CasosActualesPorComuna,c("Codigo comuna","Casos confirmados"),c("codigo_comuna","casos"),skip_absent = TRUE)
+CasosActualesPorComuna<-CasosActualesPorComuna[,c('codigo_comuna','Poblacion','Fecha','casos'),with=FALSE]
+CasosActualesPorComuna<-na.omit(CasosActualesPorComuna)
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_CASOS_NUEVO_COMUNA"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_CASOS_NUEVO_COMUNA")
+    hana_write_table(jdbcConnection = hanaConnection,df=CasosActualesPorComuna,nombre = "COVID_CASOS_NUEVO_COMUNA")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=CasosActualesPorComuna,nombre = "COVID_CASOS_NUEVO_COMUNA")
+  }
+  
+}
+
+
+
+# 2.1 casos nuevos por comuna  ----
+
+listfiles<-list.files("./data",patter="producto2_",full.names = TRUE)
+CasosNuevosPorComuna<-base::lapply(listfiles,data.table::fread)
+CasosNuevosPorComuna<-data.table::rbindlist(CasosNuevosPorComuna)
+CasosNuevosPorComuna[,fecha:=paste0(head(unlist(base::strsplit(name,split="-")),3),collapse = "-"),by=seq_len(nrow(CasosNuevosPorComuna))]
+CasosNuevosPorComuna[,name:=NULL]
+data.table::setnames(CasosNuevosPorComuna,c("Codigo comuna","Casos Confirmados"),c("codigo_comuna","casos_confirmado_comuna"),skip_absent = TRUE)
+CasosNuevosPorComuna<-na.omit(CasosNuevosPorComuna)
+CasosNuevosPorComuna<-CasosNuevosPorComuna[,c("fecha","Poblacion","codigo_comuna","casos_confirmado_comuna"),with=FALSE]
+
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_CASOS_CONFIRMADO_COMUNA"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_CASOS_CONFIRMADO_COMUNA")
+    hana_write_table(jdbcConnection = hanaConnection,df=CasosNuevosPorComuna,nombre = "COVID_CASOS_CONFIRMADO_COMUNA")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=CasosNuevosPorComuna,nombre = "COVID_CASOS_CONFIRMADO_COMUNA")
+  }
+  
+}
+
+
+
+# 2.1 Casos activos por comuna ----
+CasosActualesPorComuna<-data.table::fread("./data/producto19_CasosActivosPorComuna_std.csv",sep=";",dec=",")
+CasosActualesPorComuna[,name:=NULL]
+CasosActualesPorComuna[,Fecha:=as.Date(Fecha)]
+CasosActualesPorComuna[,semana:= as.Date(unique(cut(Fecha, "week"))),by=seq_len(nrow(CasosActualesPorComuna))]
+data.table::setnames(CasosActualesPorComuna,old=c("Codigo comuna","Casos activos"),new=c("codigo_comuna","Casos_actuales"))
+CasosActualesPorComuna<-CasosActualesPorComuna[,c("Fecha","semana","codigo_comuna","Casos_actuales"),with=FALSE]
+CasosActualesPorComuna<-CasosActualesPorComuna[!is.na(codigo_comuna)]
+CasosActualesPorComuna[,Fecha_min:=min(Fecha,na.rm = TRUE),by=c("semana","codigo_comuna")]
+CasosActualesPorComuna[,Fecha_max:=max(Fecha,na.rm = TRUE),by=c("semana","codigo_comuna")]
+CasosActualesPorComuna[,Casos_actuales_ini_cond:=Fecha==Fecha_min,by=seq_len(nrow(CasosActualesPorComuna))]
+CasosActualesPorComuna[,Casos_actuales_max_cond:=Fecha==Fecha_max,by=seq_len(nrow(CasosActualesPorComuna))]
+
+A=CasosActualesPorComuna[Casos_actuales_ini_cond==TRUE][,Casos_actuales_ini_cond:=NULL][,Casos_actuales_ini:=Casos_actuales][,Casos_actuales:=NULL]
+A=A[,c("semana","codigo_comuna","Casos_actuales_ini"),with=FALSE]
+B=CasosActualesPorComuna[Casos_actuales_max_cond==TRUE][,Casos_actuales_max_cond:=NULL][,Casos_actuales_fin:=Casos_actuales][,Casos_actuales:=NULL]
+B=B[,c("semana","codigo_comuna","Casos_actuales_fin"),with=FALSE]
+
+CasosActualesPorComuna<-CasosActualesPorComuna[,.(Casos_actuales_prom=mean(Casos_actuales,na.rm = TRUE)),by=c("semana","codigo_comuna")]
+CasosActualesPorComuna<-A[CasosActualesPorComuna,on=c("semana","codigo_comuna")]
+CasosActualesPorComuna<-B[CasosActualesPorComuna,on=c("semana","codigo_comuna")]
+
+data.table::fwrite(CasosActualesPorComuna,file="caso_activos.csv",sep=";",dec=",")
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_CASOS_ACTIVOS"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_CASOS_ACTIVOS")
+    hana_write_table(jdbcConnection = hanaConnection,df=CasosActualesPorComuna,nombre = "COVID_CASOS_ACTIVOS")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=CasosActualesPorComuna,nombre = "COVID_CASOS_ACTIVOS")
+  }
+  
+}
+
+# 2.2 positvidad por region ----
+
+listfiles<-list.files("./data",patter="producto4_",full.names = TRUE)
+CasosActivosPorRegion<-base::lapply(listfiles,data.table::fread)
+CasosActivosPorRegion <- data.table::rbindlist(CasosActivosPorRegion,fill=TRUE)
+CasosActivosPorRegion[Region=="Oâ€™Higgins",Region:="Libertador General Bernardo O'Higgins"]
+CasosActivosPorRegion[Region%like%"Araucan",Region:="La Araucanía"]
+CasosActivosPorRegion[Region=="AysÃ©n",Region:="Aysén del General Carlos Ibáñez del Campo"]
+CasosActivosPorRegion[Region=="Ã‘uble",Region:="Ñuble"]
+CasosActivosPorRegion[Region%like%"Biob" ,Region:="Biobío"]
+CasosActivosPorRegion[Region%like%"Los RÃ",Region:="Los Ríos"]
+CasosActivosPorRegion[Region=="Metropolitana",Region:="Metropolitana de Santiago"]
+CasosActivosPorRegion[Region%like%"Tarapac",Region:="Tarapacá" ]
+CasosActivosPorRegion[Region%like%"Valpara",Region:="Valparaíso"]
+CasosActivosPorRegion[Region%like%"Magallanes",Region:="Magallanes y de la Antártica Chilena"]
+CasosActivosPorRegion[,fecha:=paste0(head(unlist(base::strsplit(name,split="-")),3),collapse = "-"),by=seq_len(nrow(CasosActivosPorRegion))]
+CasosActivosPorRegion[,name:=NULL]
+data.table::setnames(CasosActivosPorRegion,c("Region","Casos nuevos totales","Casos nuevos"),c("region_residencia","casos_nuevos_totales","casos_nuevos"),skip_absent = TRUE)
+CasosActivosPorRegion[is.na(casos_nuevos_totales),casos_nuevos_totales:=casos_nuevos]
+CasosActivosPorRegion<-CasosActivosPorRegion[,c("fecha","region_residencia","casos_nuevos_totales"),with=FALSE]
+
+
+
+# 
+
+pcrPorRegion<-data.table::fread("./data/producto7_PCR_std.csv")
+pcrPorRegion[Region=="Oâ€™Higgins",Region:="Libertador General Bernardo O'Higgins"]
+pcrPorRegion[Region%like%"Araucan",Region:="La Araucanía"]
+pcrPorRegion[Region=="AysÃ©n",Region:="Aysén del General Carlos Ibáñez del Campo"]
+pcrPorRegion[Region=="Ã‘uble",Region:="Ñuble"]
+pcrPorRegion[Region%like%"Biob" ,Region:="Biobío"]
+pcrPorRegion[Region%like%"Los RÃ",Region:="Los Ríos"]
+pcrPorRegion[Region=="Metropolitana",Region:="Metropolitana de Santiago"]
+pcrPorRegion[Region%like%"Tarapac",Region:="Tarapacá" ]
+pcrPorRegion[Region%like%"Valpara",Region:="Valparaíso"]
+pcrPorRegion[Region%like%"Magallanes",Region:="Magallanes y de la Antártica Chilena"]
+pcrPorRegion[,name:=NULL]
+data.table::setnames(pcrPorRegion,c("Region","Codigo region","Poblacion","fecha","numero"),c("region_residencia","codigo_region","Poblacion","fecha","numero_pcr"))
+pcrPorRegion[,Poblacion:=NULL]
+
+positividadRegional<-CasosActivosPorRegion[pcrPorRegion,on=c("fecha","region_residencia")]
+positividadRegional<-positividadRegional[,c("fecha","codigo_region","region_residencia","casos_nuevos_totales","numero_pcr")]
+
+positividadRegional<-na.omit(positividadRegional)
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_CASOS_ACTIVOS_REGIONAL_PCR"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_CASOS_ACTIVOS_REGIONAL_PCR")
+    hana_write_table(jdbcConnection = hanaConnection,df=positividadRegional,nombre = "COVID_CASOS_ACTIVOS_REGIONAL_PCR")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=positividadRegional,nombre = "COVID_CASOS_ACTIVOS_REGIONAL_PCR")
+  }
+  
+}
+
+# 2.2 Casos UCI regional y nacional----
+
+
+camasUCI<-data.table::fread("./data/producto52_Camas_UCI_std.csv",sep=";",dec=",",encoding="Latin-1")
+camasUCI[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(camasUCI))]
+camasUCI[,Fecha:=as.Date(Fecha)]
+camasUCI[,name:=NULL]
+UCI<-dcast(camasUCI, formula=Region+Fecha~Serie,value.var="Casos")
+UCI[,Fecha:=as.Date(Fecha)]
+UCI[Region=="Oâ€™Higgins",Region:="Libertador General Bernardo O'Higgins"]
+UCI[Region%like%"Araucan",Region:="La Araucanía"]
+UCI[Region=="AysÃ©n",Region:="Aysén del General Carlos Ibáñez del Campo"]
+UCI[Region=="Ã‘uble",Region:="Ñuble"]
+UCI[Region%like%"Biob" ,Region:="Biobío"]
+UCI[Region%like%"Los RÃ",Region:="Los Ríos"]
+UCI[Region=="Metropolitana",Region:="Metropolitana de Santiago"]
+UCI[Region%like%"Tarapac",Region:="Tarapacá" ]
+UCI[Region%like%"Valpara",Region:="Valparaíso"]
+UCI[Region%like%"Magallanes",Region:="Magallanes y de la Antártica Chilena"]
+data.table::setnames(UCI,"Region","region_residencia")
+uciNacional=UCI[region_residencia=="Total"]
+UCI=UCI[region_residencia!="Total"]
+marcoRegion<-unique(marcoTotal[,c("region_residencia","codigo_region")])
+UCI=marcoRegion[UCI,on="region_residencia"]
+
+old=c('Camas UCI habilitadas','Camas UCI ocupadas COVID-19','Camas UCI ocupadas no COVID-19','Camas base (2019)')
+new=c('CAMAS_UCI_HABILITADAS','CAMAS_UCI_OCUPADAS_COVID_19','CAMAS_UCI_OCUPADAS_NO_COVID_19','CAMAS_BASE_2019')
+
+data.table::setnames(UCI,old=old,new=new)
+data.table::setnames(uciNacional,old=old,new=new)
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_UCI_REGIONAL"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_UCI_REGIONAL")
+    hana_write_table(jdbcConnection = hanaConnection,df=UCI,nombre = "COVID_UCI_REGIONAL")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=UCI,nombre = "COVID_UCI_REGIONAL")
+  }
+  
+}
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_UCI_NACIONAL"))
+  {
+   
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_UCI_NACIONAL")
+    hana_write_table(jdbcConnection = hanaConnection,df=uciNacional,nombre = "COVID_UCI_NACIONAL")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=uciNacional,nombre = "COVID_UCI_NACIONAL")
+  }
+  
+}
+
+# 2.3 Positividad----
+
+Positividad<-data.table::fread("./data/producto65_PositividadPorComuna_std.csv",sep=";",dec=",")
+data.table::setnames(Positividad,old=c("Codigo region","Region","Codigo comuna","Comuna","Positividad")
+                     ,new=c("codigo_region","region_residencia","codigo_comuna","comuna_residencia","positividad"))
+Positividad[,name:=NULL]
+FechaPositividad<-unique(Positividad[,c("Fecha"),with=FALSE])
+FechaPositividad[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(FechaPositividad))]
+FechaPositividad[,Fecha:=as.Date(Fecha)]
+FechaPositividad[,semana:= as.Date(unique(cut(Fecha, "week"))),by=seq_len(nrow(FechaPositividad))]
+Positividad[,Fecha:=as.Date(Fecha)]
+Positividad<-FechaPositividad[Positividad,on="Fecha"]
+Positividad<-Positividad[,.(positividad=mean(positividad,na.rm=TRUE),Poblacion=unique(Poblacion)),by=c("codigo_comuna","semana")]
+Positividad<-funciones_fill_na(Positividad)
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_POSITIVIDAD_COMUNAL"))
+  {
+    
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_POSITIVIDAD_COMUNAL")
+    hana_write_table(jdbcConnection = hanaConnection,df=Positividad,nombre = "COVID_POSITIVIDAD_COMUNAL")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=Positividad,nombre = "COVID_POSITIVIDAD_COMUNAL")
+  }
+  
+}
+
+poblacion<-unique(Positividad[,c("codigo_comuna","Poblacion")])
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_POBLACION_COMUNAL"))
+  {
+    
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_POBLACION_COMUNAL")
+    hana_write_table(jdbcConnection = hanaConnection,df=poblacion,nombre = "COVID_POBLACION_COMUNAL")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=poblacion,nombre = "COVID_POBLACION_COMUNAL")
+  }
+  
+}
+
+
+
+# 2.4 Numero reproductivo efectivo Re provincial Regional Nacional ----
+
+re_prov<-data.table::fread("./data/producto54_r.provincial_n.csv",sep=";",dec=",")
+re_prov[,fecha:=raster::trim(fecha),by=seq_len(nrow(re_prov))]
+re_prov[,fecha:=as.Date(fecha)]
+re_prov[,name:=NULL]
+re_reg<-data.table::fread("./data/producto54_r.regional_n.csv",sep=";",dec=",")
+re_reg[,fecha:=as.Date(fecha)]
+re_reg[,name:=NULL]
+re_nac<-data.table::fread("./data/producto54_r.nacional_n.csv",sep=";",dec=",")
+re_nac[,fecha:=as.Date(fecha)]
+re_nac[,name:=NULL]
+
+
+
+# 2.5 etapa paso a paso semanal  ----
+pasoapaso<-data.table::fread("./data/producto74_paso_a_paso_std.csv",sep=";",dec=",")
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_PASO_DIARIO"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_PASO_DIARIO")
+    hana_write_table(jdbcConnection = hanaConnection,df=pasoapaso,nombre = "COVID_PASO_DIARIO")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=pasoapaso,nombre = "COVID_PASO_DIARIO")
+  }
+  
+}
+pasoapaso<-pasoapaso[,.(Paso=min(Paso)),by=c("codigo_region","region_residencia","codigo_comuna","comuna_residencia","Fecha","name")]
+fechaPasoapaso<-unique(pasoapaso[,c("Fecha")])
+fechaPasoapaso[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(fechaPasoapaso))]
+fechaPasoapaso<-unique(fechaPasoapaso[,c("Fecha")])
+fechaPasoapaso[,Fecha:=as.Date(Fecha)]
+fechaPasoapaso[,semana:= as.Date(unique(cut(Fecha, "week"))),by=seq_len(nrow(fechaPasoapaso))]
+pasoapaso[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(pasoapaso))]
+pasoapaso[,Fecha:=as.Date(Fecha)]
+pasoapaso<-fechaPasoapaso[pasoapaso,on="Fecha"]
+pasoapaso[,max_fecha_sem:=max(Fecha),by=c("semana","codigo_comuna")]
+pasoapaso=pasoapaso[Fecha==max_fecha_sem]
+pasoapaso<-unique(pasoapaso[,c( "semana","codigo_comuna","Paso")])
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_PASO"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_PASO")
+    hana_write_table(jdbcConnection = hanaConnection,df=pasoapaso,nombre = "COVID_PASO")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=pasoapaso,nombre = "COVID_PASO")
+  }
+  
+}
+# 2.6 marco total comunas ----
+
+numericas = c('codigo_region','codigo_provincia','codigo_comuna')
+marcoTotal[ , c(numericas):=lapply(.SD, as.numeric), .SDcols = numericas]
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_DATOS_COMUNAS"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_DATOS_COMUNAS")
+    hana_write_table(jdbcConnection = hanaConnection,df=marcoTotal,nombre = "COVID_DATOS_COMUNAS")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=marcoTotal,nombre = "COVID_DATOS_COMUNAS")
+  }
+  
+}
+
+comuna_km2<-scraper_wiki_table()
+comuna_km2<-funciones_fill_na(comuna_km2)
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_COMUNAS_KM2"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_COMUNAS_KM2")
+    hana_write_table(jdbcConnection = hanaConnection,df=comuna_km2,nombre = "COVID_COMUNAS_KM2")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=comuna_km2,nombre = "COVID_COMUNAS_KM2")
+  }
+  
+}
+
+
+
+# 2.5 etapa paso a paso semanal  ----
+pasoapaso<-data.table::fread("./data/producto74_paso_a_paso_std.csv",sep=";",dec=",")
+pasoapaso<-pasoapaso[,.(Paso=min(Paso)),by=c("codigo_region","region_residencia","codigo_comuna","comuna_residencia","Fecha")]
+fechaPasoapaso<-unique(pasoapaso[,c("Fecha")])
+fechaPasoapaso[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(fechaPasoapaso))]
+fechaPasoapaso<-unique(fechaPasoapaso[,c("Fecha")])
+fechaPasoapaso[,Fecha:=as.Date(Fecha)]
+fechaPasoapaso[,semana:= as.Date(unique(cut(Fecha, "week"))),by=seq_len(nrow(fechaPasoapaso))]
+pasoapaso[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(pasoapaso))]
+pasoapaso[,Fecha:=as.Date(Fecha)]
+pasoapaso<-fechaPasoapaso[pasoapaso,on="Fecha"]
+pasoapaso[,max_fecha_sem:=max(Fecha),by=c("semana","codigo_comuna")]
+pasoapaso=pasoapaso[Fecha==max_fecha_sem]
+pasoapaso<-unique(pasoapaso[,c( "semana","codigo_comuna","Paso")])
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_PASO"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_PASO")
+    hana_write_table(jdbcConnection = hanaConnection,df=pasoapaso,nombre = "COVID_PASO")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=pasoapaso,nombre = "COVID_PASO")
+  }
+  
+}
+# 2.9 movilidad comunas ----
+
+numericas = c('codigo_region','codigo_comuna')
+movilidad<-data.table::fread("./data/producto41_BIPComuna_std.csv",sep=";",dec=",")
+movilidad[,c("Comuna","name"):=list(NULL,NULL)]
+data.table::setnames(movilidad,old="Codigo comuna" ,new='codigo_comuna')
+movilidad<-na.omit(movilidad)
+movilidad<-unique(movilidad)
+movilidad[,Fecha:=as.Date(Fecha)]
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_COVID_MOVILIDAD_COMUNAS"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_MOVILIDAD_COMUNAS")
+    hana_write_table(jdbcConnection = hanaConnection,df=movilidad,nombre = "COVID_MOVILIDAD_COMUNAS")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=movilidad,nombre = "COVID_MOVILIDAD_COMUNAS")
+  }
+  
+}
+
+
+
+# 2.9 movilidad comunas ----
+
+
+
+TiendasGeolocalizaion<-data.table::setDT(openxlsx::read.xlsx(
+  xlsxFile="dataTiendasCencoComuna.xlsx",
+  sheet = "Locales"))
+TiendasGeolocalizaion[,SAP:=as.character(SAP)]
+TiendasGeolocalizaion[is.na(SAP),SAP:="-"]
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_GEOLOCALIZACION_TIENDAS_COMUNAS"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="GEOLOCALIZACION_TIENDAS_COMUNAS")
+    hana_write_table(jdbcConnection = hanaConnection,df=TiendasGeolocalizaion,nombre = "GEOLOCALIZACION_TIENDAS_COMUNAS")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=TiendasGeolocalizaion,nombre = "GEOLOCALIZACION_TIENDAS_COMUNAS")
+  }
+  
+}
+
+emol<-scraper_emol_table()
+
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_GEOLOCALIZACION_FASE_ACTUAL_EMOL"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL")
+    hana_write_table(jdbcConnection = hanaConnection,df=emol,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=emol,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL")
+  }
+  
+}
+
+hana_public_table(jdbcConnection=hanaConnection,tablain="GEOLOCALIZACION_TIENDAS_COMUNAS")
+hana_public_table(jdbcConnection=hanaConnection,tablain="COVID_PASO")
+
