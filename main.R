@@ -12,7 +12,7 @@ library(ggplot2)
 library(scales)
 library(forecast)
 library(reshape)
-library(fMarkovSwitching)
+#library(fMarkovSwitching)
 source("helper_scraper.R")
 source("helper_hana.R")
 source("funciones.R")
@@ -22,10 +22,9 @@ hanaConnection<-hana_connect()
 
 actualizar=TRUE
 descargar=TRUE
-marcoTotal<-data.table::setDT(openxlsx::read.xlsx("divisionPoliticoTerritorial.xlsx") )
+marcoTotal<-data.table::setDT(openxlsx::read.xlsx("./xlsx/divisionPoliticoTerritorial.xlsx") )
 
 #1.	DESCARGAR DATA DEL MIMISTERIO DE SALUD ----
-
 if(descargar)
 {
   html<-"https://github.com/MinCiencia/Datos-COVID19"
@@ -55,16 +54,13 @@ if(descargar)
     
   }  
 }
-
-
 # 2. ORDENAR LA DATA ----
 
-
-# 2.1 casos nuevos por comuna  ----
 CasosActualesPorComuna<-data.table::fread("./data/producto1_Covid-19_std.csv",sep=";",dec=",")
 data.table::setnames(CasosActualesPorComuna,c("Codigo comuna","Casos confirmados"),c("codigo_comuna","casos"),skip_absent = TRUE)
 CasosActualesPorComuna<-CasosActualesPorComuna[,c('codigo_comuna','Poblacion','Fecha','casos'),with=FALSE]
 CasosActualesPorComuna<-na.omit(CasosActualesPorComuna)
+
 
 if(actualizar)
 {
@@ -188,6 +184,8 @@ pcrPorRegion[,name:=NULL]
 data.table::setnames(pcrPorRegion,c("Region","Codigo region","Poblacion","fecha","numero"),c("region_residencia","codigo_region","Poblacion","fecha","numero_pcr"))
 pcrPorRegion[,Poblacion:=NULL]
 
+
+CasosActivosPorRegion[,fecha:=as.Date(fecha)]
 positividadRegional<-CasosActivosPorRegion[pcrPorRegion,on=c("fecha","region_residencia")]
 positividadRegional<-positividadRegional[,c("fecha","codigo_region","region_residencia","casos_nuevos_totales","numero_pcr")]
 
@@ -211,6 +209,7 @@ if(actualizar)
 
 
 camasUCI<-data.table::fread("./data/producto52_Camas_UCI_std.csv",sep=";",dec=",",encoding="Latin-1")
+camasUCI[,Fecha:=as.character(Fecha)]
 camasUCI[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(camasUCI))]
 camasUCI[,Fecha:=as.Date(Fecha)]
 camasUCI[,name:=NULL]
@@ -274,6 +273,7 @@ data.table::setnames(Positividad,old=c("Codigo region","Region","Codigo comuna",
                      ,new=c("codigo_region","region_residencia","codigo_comuna","comuna_residencia","positividad"))
 Positividad[,name:=NULL]
 FechaPositividad<-unique(Positividad[,c("Fecha"),with=FALSE])
+FechaPositividad[,Fecha:=as.character(Fecha)]
 FechaPositividad[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(FechaPositividad))]
 FechaPositividad[,Fecha:=as.Date(Fecha)]
 FechaPositividad[,semana:= as.Date(unique(cut(Fecha, "week"))),by=seq_len(nrow(FechaPositividad))]
@@ -319,6 +319,7 @@ if(actualizar)
 # 2.4 Numero reproductivo efectivo Re provincial Regional Nacional ----
 
 re_prov<-data.table::fread("./data/producto54_r.provincial_n.csv",sep=";",dec=",")
+re_prov[,fecha:=as.character(fecha)]
 re_prov[,fecha:=raster::trim(fecha),by=seq_len(nrow(re_prov))]
 re_prov[,fecha:=as.Date(fecha)]
 re_prov[,name:=NULL]
@@ -332,32 +333,35 @@ re_nac[,name:=NULL]
 
 
 # 2.5 etapa paso a paso semanal  ----
-pasoapaso<-data.table::fread("./data/producto74_paso_a_paso_std.csv",sep=";",dec=",")
+pasoapasoD<-data.table::fread("./data/producto74_paso_a_paso_std.csv",sep=";",dec=",")
 if(actualizar)
 {
   if(DBI::dbExistsTable(hanaConnection, "FC_COVID_PASO_DIARIO"))
   {
     hana_drop_table(jdbcConnection = hanaConnection,nombre="COVID_PASO_DIARIO")
-    hana_write_table(jdbcConnection = hanaConnection,df=pasoapaso,nombre = "COVID_PASO_DIARIO")
+    hana_write_table(jdbcConnection = hanaConnection,df=pasoapasoD,nombre = "COVID_PASO_DIARIO")
     
   }else
   {
-    hana_write_table(jdbcConnection = hanaConnection,df=pasoapaso,nombre = "COVID_PASO_DIARIO")
+    hana_write_table(jdbcConnection = hanaConnection,df=pasoapasoD,nombre = "COVID_PASO_DIARIO")
   }
   
 }
-pasoapaso<-pasoapaso[,.(Paso=min(Paso)),by=c("codigo_region","region_residencia","codigo_comuna","comuna_residencia","Fecha","name")]
+pasoapaso<-pasoapasoD[,.(Paso=min(Paso)),by=c("codigo_region","region_residencia","codigo_comuna","comuna_residencia","Fecha","name")]
 fechaPasoapaso<-unique(pasoapaso[,c("Fecha")])
+fechaPasoapaso[,Fecha:=as.character(Fecha)]
 fechaPasoapaso[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(fechaPasoapaso))]
 fechaPasoapaso<-unique(fechaPasoapaso[,c("Fecha")])
 fechaPasoapaso[,Fecha:=as.Date(Fecha)]
 fechaPasoapaso[,semana:= as.Date(unique(cut(Fecha, "week"))),by=seq_len(nrow(fechaPasoapaso))]
+pasoapaso[,Fecha:=as.character(Fecha)]
 pasoapaso[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(pasoapaso))]
 pasoapaso[,Fecha:=as.Date(Fecha)]
 pasoapaso<-fechaPasoapaso[pasoapaso,on="Fecha"]
 pasoapaso[,max_fecha_sem:=max(Fecha),by=c("semana","codigo_comuna")]
 pasoapaso=pasoapaso[Fecha==max_fecha_sem]
 pasoapaso<-unique(pasoapaso[,c( "semana","codigo_comuna","Paso")])
+
 if(actualizar)
 {
   if(DBI::dbExistsTable(hanaConnection, "FC_COVID_PASO"))
@@ -375,7 +379,7 @@ if(actualizar)
 
 numericas = c('codigo_region','codigo_provincia','codigo_comuna')
 marcoTotal[ , c(numericas):=lapply(.SD, as.numeric), .SDcols = numericas]
-if(actualizar)
+if(FALSE)
 {
   if(DBI::dbExistsTable(hanaConnection, "FC_COVID_DATOS_COMUNAS"))
   {
@@ -391,7 +395,7 @@ if(actualizar)
 
 comuna_km2<-scraper_wiki_table()
 comuna_km2<-funciones_fill_na(comuna_km2)
-if(actualizar)
+if(FALSE)
 {
   if(DBI::dbExistsTable(hanaConnection, "FC_COVID_COMUNAS_KM2"))
   {
@@ -411,10 +415,12 @@ if(actualizar)
 pasoapaso<-data.table::fread("./data/producto74_paso_a_paso_std.csv",sep=";",dec=",")
 pasoapaso<-pasoapaso[,.(Paso=min(Paso)),by=c("codigo_region","region_residencia","codigo_comuna","comuna_residencia","Fecha")]
 fechaPasoapaso<-unique(pasoapaso[,c("Fecha")])
+fechaPasoapaso[,Fecha:=as.character(Fecha)]
 fechaPasoapaso[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(fechaPasoapaso))]
 fechaPasoapaso<-unique(fechaPasoapaso[,c("Fecha")])
 fechaPasoapaso[,Fecha:=as.Date(Fecha)]
 fechaPasoapaso[,semana:= as.Date(unique(cut(Fecha, "week"))),by=seq_len(nrow(fechaPasoapaso))]
+pasoapaso[,Fecha:=as.character(Fecha)]
 pasoapaso[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(pasoapaso))]
 pasoapaso[,Fecha:=as.Date(Fecha)]
 pasoapaso<-fechaPasoapaso[pasoapaso,on="Fecha"]
@@ -464,7 +470,7 @@ if(actualizar)
 
 
 TiendasGeolocalizaion<-data.table::setDT(openxlsx::read.xlsx(
-  xlsxFile="dataTiendasCencoComuna.xlsx",
+  xlsxFile="./xlsx/dataTiendasCencoComuna.xlsx",
   sheet = "Locales"))
 TiendasGeolocalizaion[,SAP:=as.character(SAP)]
 TiendasGeolocalizaion[is.na(SAP),SAP:="-"]
