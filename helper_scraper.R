@@ -60,11 +60,20 @@ scraper_emol_table<-function()
   out=html %>%read_html() %>% html_nodes('body #inner-wrap #nota_tabla_emol') %>%  html_nodes('table') %>% html_table() %>% data.table::rbindlist()
   data.table::setnames(out,old=names(out),new=c("COMUNA_RESIDENCIA_DESC","PASO"),skip_absent = TRUE)
   MARCO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_DATOS_COMUNAS")
-  out[,COMUNA_RESIDENCIA:=unlist(strsplit(COMUNA_RESIDENCIA_DESC," Desde "))[1],seq_len(nrow(out))]
-  out[,Paso_prob:=unlist(strsplit(COMUNA_RESIDENCIA_DESC," Desde "))[2],seq_len(nrow(out))]
+  
+  out[,COMUNA_RESIDENCIA:=unlist(strsplit(COMUNA_RESIDENCIA_DESC,"Desde"))[1],seq_len(nrow(out))]
+  out[,Paso_prob:=unlist(strsplit(COMUNA_RESIDENCIA_DESC,"Desde"))[2],seq_len(nrow(out))]
+  
+  out[,COMUNA_RESIDENCIA:=gsub(">","",COMUNA_RESIDENCIA),by=seq_len(nrow(out))]
+  out[,COMUNA_RESIDENCIA:=raster::trim(COMUNA_RESIDENCIA),by=seq_len(nrow(out))]
+  out[,Paso_prob:=raster::trim(Paso_prob),by=seq_len(nrow(out))]
+  
   out[,Paso_prob:=tail(unlist(strsplit(Paso_prob," ")),1),seq_len(nrow(out))]
-  out[,Paso_prob:=tail(unlist(strsplit(Paso_prob," ")),1),seq_len(nrow(out))]
-  out[,PASO:=ifelse(is.na(Paso_prob),PASO,ifelse(Paso_prob=="Transición",2,ifelse(Paso_prob=="Preparación",3,PASO)))]
+  out[,Paso_prob:=raster::trim(Paso_prob),by=seq_len(nrow(out))]
+  
+  out[,PASO:=ifelse(is.na(Paso_prob),PASO,ifelse(Paso_prob=="Transición",2,ifelse(Paso_prob=="Preparación",3,ifelse(Paso_prob=="Inicial",4,ifelse(Paso_prob=="Cuarentena",1,NA)))))]
+  
+  
   out[COMUNA_RESIDENCIA=="Til Til",COMUNA_RESIDENCIA:="Tiltil"]
   out[COMUNA_RESIDENCIA=="Paihuano",COMUNA_RESIDENCIA:="Paiguano"]
   out[COMUNA_RESIDENCIA=="Marchigüe",COMUNA_RESIDENCIA:="Marchihue"]

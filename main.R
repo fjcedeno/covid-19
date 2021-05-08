@@ -60,7 +60,7 @@ CasosActualesPorComuna<-data.table::fread("./data/producto1_Covid-19_std.csv",se
 data.table::setnames(CasosActualesPorComuna,c("Codigo comuna","Casos confirmados"),c("codigo_comuna","casos"),skip_absent = TRUE)
 CasosActualesPorComuna<-CasosActualesPorComuna[,c('codigo_comuna','Poblacion','Fecha','casos'),with=FALSE]
 CasosActualesPorComuna<-na.omit(CasosActualesPorComuna)
-
+CasosActualesPorComuna[,Fecha:=as.Date(Fecha)]
 
 if(actualizar)
 {
@@ -190,7 +190,7 @@ positividadRegional<-CasosActivosPorRegion[pcrPorRegion,on=c("fecha","region_res
 positividadRegional<-positividadRegional[,c("fecha","codigo_region","region_residencia","casos_nuevos_totales","numero_pcr")]
 
 positividadRegional<-na.omit(positividadRegional)
-
+positividadRegional[,fecha:=as.Date(fecha)]
 if(actualizar)
 {
   if(DBI::dbExistsTable(hanaConnection, "FC_COVID_CASOS_ACTIVOS_REGIONAL_PCR"))
@@ -334,6 +334,7 @@ re_nac[,name:=NULL]
 
 # 2.5 etapa paso a paso semanal  ----
 pasoapasoD<-data.table::fread("./data/producto74_paso_a_paso_std.csv",sep=";",dec=",")
+pasoapasoD[,Fecha:=as.Date(Fecha)]
 if(actualizar)
 {
   if(DBI::dbExistsTable(hanaConnection, "FC_COVID_PASO_DIARIO"))
@@ -506,6 +507,37 @@ if(actualizar)
   
 }
 
+
+
 hana_public_table(jdbcConnection=hanaConnection,tablain="GEOLOCALIZACION_TIENDAS_COMUNAS")
 hana_public_table(jdbcConnection=hanaConnection,tablain="COVID_PASO")
+
+
+MARCO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_DATOS_COMUNAS")
+POBLACION_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_POBLACION_COMUNAL")
+SUPERFICIE_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_COMUNAS_KM2")
+PASO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_PASO")
+PASO_COMUNAL[,SEMANA:=as.Date(SEMANA)]
+UCI_NACIONAL<-hana_get_complete_table_week(jdbcConnection =hanaConnection ,nombre="COVID_UCI_NACIONAL")
+cols_1<-c("FECHA","SEMANA")
+UCI_NACIONAL[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+data.table::fwrite(UCI_NACIONAL,file="./data_procesada/UCI_NACIONAL.csv",sep=";",dec=",")
+UCI_REGIONAL<-hana_get_complete_table_week(jdbcConnection =hanaConnection ,nombre="COVID_UCI_REGIONAL")
+UCI_REGIONAL[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+data.table::fwrite(UCI_REGIONAL,file="./data_procesada/UCI_REGIONAL.csv",sep=";",dec=",")
+COVID_CASOS_ACTIVOS=hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_CASOS_ACTIVOS")
+COVID_CASOS_ACTIVOS[,("SEMANA") := lapply(.SD,as.Date), .SDcols=c("SEMANA")]
+data.table::fwrite(COVID_CASOS_ACTIVOS,file="./data_procesada/COVID_CASOS_ACTIVOS.csv",sep=";",dec=",")
+COVID_CASOS_POSITIVIDAD=hana_get_complete_table_week(jdbcConnection=hanaConnection,nombre="COVID_CASOS_ACTIVOS_REGIONAL_PCR")
+COVID_CASOS_POSITIVIDAD[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+data.table::fwrite(COVID_CASOS_POSITIVIDAD,file="./data_procesada/COVID_CASOS_POSITIVIDAD.csv",sep=";",dec=",")
+PASO_ACTUAL=hana_get_complete_table(jdbcConnection=hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL")[,c("CODIGO_COMUNA","PASO","PASO_PROB"),with=FALSE][,CODIGO_COMUNA:=as.character(CODIGO_COMUNA)]
+data.table::fwrite(PASO_ACTUAL,file="./data_procesada/PASO_ACTUAL.csv",sep=";",dec=",")
+# 1.1 Tablas externas 
+COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY=hana_get_complete_table_externa_week(jdbcConnection=hanaConnection,nombre="AA_FCAST_CASOS_NUEVOS")
+data.table::fwrite(COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,file="./data_procesada/COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY.csv",sep=";",dec=",")
+COVID_CASOS_CONFIRMADOS_COMUNAS=POBLACION_COMUNAL[COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,on="CODIGO_COMUNA"]
+COVID_CASOS_CONFIRMADOS_COMUNAS<-COVID_CASOS_CONFIRMADOS_COMUNAS[!is.na(CASOS_CONFIRMADO_COMUNA),c('FECHA','POBLACION','CODIGO_COMUNA','CASOS_CONFIRMADO_COMUNA','SEMANA'),with=FALSE]
+COVID_CASOS_CONFIRMADOS_COMUNAS[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+
 

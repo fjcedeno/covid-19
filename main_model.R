@@ -20,10 +20,10 @@ source("funciones.R")
 source('~/connections/connections.R')
 start_time=Sys.time()
 print(start_time)
-hanaConnection<-hana_connect()
 # 1. CARGAR DATA HANA ----
-if(TRUE)
+if(FALSE)
 {
+  hanaConnection<-hana_connect()
   MARCO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_DATOS_COMUNAS")
   POBLACION_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_POBLACION_COMUNAL")
   SUPERFICIE_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_COMUNAS_KM2")
@@ -32,25 +32,55 @@ if(TRUE)
   UCI_NACIONAL<-hana_get_complete_table_week(jdbcConnection =hanaConnection ,nombre="COVID_UCI_NACIONAL")
   cols_1<-c("FECHA","SEMANA")
   UCI_NACIONAL[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+  data.table::fwrite(UCI_NACIONAL,file="./data_procesada/UCI_NACIONAL.csv",sep=";",dec=",")
   UCI_REGIONAL<-hana_get_complete_table_week(jdbcConnection =hanaConnection ,nombre="COVID_UCI_REGIONAL")
   UCI_REGIONAL[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+  data.table::fwrite(UCI_REGIONAL,file="./data_procesada/UCI_REGIONAL.csv",sep=";",dec=",")
   COVID_CASOS_ACTIVOS=hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_CASOS_ACTIVOS")
   COVID_CASOS_ACTIVOS[,("SEMANA") := lapply(.SD,as.Date), .SDcols=c("SEMANA")]
+  data.table::fwrite(COVID_CASOS_ACTIVOS,file="./data_procesada/COVID_CASOS_ACTIVOS.csv",sep=";",dec=",")
   COVID_CASOS_POSITIVIDAD=hana_get_complete_table_week(jdbcConnection=hanaConnection,nombre="COVID_CASOS_ACTIVOS_REGIONAL_PCR")
   COVID_CASOS_POSITIVIDAD[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+  data.table::fwrite(COVID_CASOS_POSITIVIDAD,file="./data_procesada/COVID_CASOS_POSITIVIDAD.csv",sep=";",dec=",")
+  PASO_ACTUAL=hana_get_complete_table(jdbcConnection=hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL")[,c("CODIGO_COMUNA","PASO","PASO_PROB"),with=FALSE][,CODIGO_COMUNA:=as.character(CODIGO_COMUNA)]
+  data.table::fwrite(PASO_ACTUAL,file="./data_procesada/PASO_ACTUAL.csv",sep=";",dec=",")
   # 1.1 Tablas externas 
   COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY=hana_get_complete_table_externa_week(jdbcConnection=hanaConnection,nombre="AA_FCAST_CASOS_NUEVOS")
+  data.table::fwrite(COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,file="./data_procesada/COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY.csv",sep=";",dec=",")
   COVID_CASOS_CONFIRMADOS_COMUNAS=POBLACION_COMUNAL[COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,on="CODIGO_COMUNA"]
   COVID_CASOS_CONFIRMADOS_COMUNAS<-COVID_CASOS_CONFIRMADOS_COMUNAS[!is.na(CASOS_CONFIRMADO_COMUNA),c('FECHA','POBLACION','CODIGO_COMUNA','CASOS_CONFIRMADO_COMUNA','SEMANA'),with=FALSE]
   COVID_CASOS_CONFIRMADOS_COMUNAS[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+  
 }else{
+  cols_1<-c("FECHA","SEMANA")
+  MARCO_COMUNAL<-data.table::setDT(openxlsx::read.xlsx("./xlsx/INFORMACION_COMUNAL.xlsx",sheet="MARCO_COMUNAL"))
+  MARCO_REGIONAL<-unique(MARCO_COMUNAL[,c("REGION_RESIDENCIA","CODIGO_REGION"),with=FALSE])
+  POBLACION_COMUNAL<-data.table::setDT(openxlsx::read.xlsx("./xlsx/INFORMACION_COMUNAL.xlsx",sheet="POBLACION_COMUNAL"))
+  SUPERFICIE_COMUNAL<-data.table::setDT(openxlsx::read.xlsx("./xlsx/INFORMACION_COMUNAL.xlsx",sheet="SUPERFICIE_COMUNAL"))
   
-  MARCO_COMUNAL<-data.table::setDT(openxlsx::read.xlsx("./data/MARCO_COMUNAL.xlsx"))
-  POBLACION_COMUNAL<-data.table::setDT(openxlsx::read.xlsx("./data/POBLACION_COMUNAL.xlsx"))
-  SUPERFICIE_COMUNAL<-data.table::setDT(openxlsx::read.xlsx("./data/SUPERFICIE_COMUNAL.xlsx"))
+  PASO_COMUNAL<-data.table::fread(file="./data_procesada/PASO_COMUNAL.csv",sep=";",dec=",")
+  PASO_COMUNAL[,("SEMANA") := lapply(.SD,as.Date), .SDcols=c("SEMANA")]
   
-  COVID_CASOS_POSITIVIDAD<-data.table::fread("./data/COVID_CASOS_POSITIVIDAD.csv",sep=";",dec=",",encoding ="Latin-1")
-  COVID_CASOS_CONFIRMADOS_COMUNAS<-data.table::fread("./data/COVID_CASOS_CONFIRMADOS_COMUNAS.csv",sep=";",dec=",",encoding ="Latin-1",colClasses = c('Date','numeric','numeric','numeric','Date'))
+  UCI_NACIONAL<-data.table::fread(file="./data_procesada/UCI_NACIONAL.csv",sep=";",dec=",")
+  UCI_NACIONAL[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+  
+  UCI_REGIONAL<-data.table::fread(file="./data_procesada/UCI_REGIONAL.csv",sep=";",dec=",")
+  UCI_REGIONAL[,REGION_RESIDENCIA:=NULL]
+  UCI_REGIONAL<-MARCO_REGIONAL[UCI_REGIONAL,on="CODIGO_REGION"]
+  UCI_REGIONAL[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+  
+  COVID_CASOS_ACTIVOS<-data.table::fread(file="./data_procesada/COVID_CASOS_ACTIVOS.csv",sep=";",dec=",")
+  
+  
+  COVID_CASOS_POSITIVIDAD<-data.table::fread("./data_procesada/COVID_CASOS_POSITIVIDAD.csv",sep=";",dec=",",encoding ="Latin-1")
+  COVID_CASOS_POSITIVIDAD[,REGION_RESIDENCIA:=NULL]
+  COVID_CASOS_POSITIVIDAD<-MARCO_REGIONAL[COVID_CASOS_POSITIVIDAD,on="CODIGO_REGION"]
+  COVID_CASOS_POSITIVIDAD[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+  COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY<-data.table::fread("./data_procesada/COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY.csv",sep=";",dec=",")
+  COVID_CASOS_CONFIRMADOS_COMUNAS=POBLACION_COMUNAL[COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,on="CODIGO_COMUNA"]
+  COVID_CASOS_CONFIRMADOS_COMUNAS<-COVID_CASOS_CONFIRMADOS_COMUNAS[!is.na(CASOS_CONFIRMADO_COMUNA),c('FECHA','POBLACION','CODIGO_COMUNA','CASOS_CONFIRMADO_COMUNA','SEMANA'),with=FALSE]
+  COVID_CASOS_CONFIRMADOS_COMUNAS[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+  PASO_ACTUAL<-data.table::fread("./data_procesada/PASO_ACTUAL.csv",sep=";",dec=",",colClasses = c("character","integer","logical" ))
 }
 
 no_cores <- parallel::detectCores()-1
@@ -421,7 +451,6 @@ for(i in unique(names(testData)))
   pred_cast[,SEMANA:=1:.N,by="CODIGO_COMUNA"]
   pred_cast[,KEY:=paste0(CODIGO_COMUNA,SEMANA),by=seq_len(nrow(pred_cast))]
   PASO_COMUNAL[,FECHA_MAX:=max(SEMANA,na.rm=TRUE)]
-  PASO_ACTUAL=hana_get_complete_table(jdbcConnection=hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL")[,c("CODIGO_COMUNA","PASO","PASO_PROB"),with=FALSE][,CODIGO_COMUNA:=as.character(CODIGO_COMUNA)]
   pred_cast<-PASO_ACTUAL[pred_cast,on="CODIGO_COMUNA"]
   pred_cast[PASO_PROB=="TRUE",c('subir_NORMAL','mantenerse_NORMAL','bajar_NORMAL','subir_OPTIMISTA','mantenerse_OPTIMISTA','bajar_OPTIMISTA','subir_PESIMISTA','mantenerse_PESIMISTA','bajar_PESIMISTA'):=list(0,1,0,0,1,0,0,1,0)]
   pred_cast<-pred_cast[,c('KEY','CODIGO_COMUNA','PASO','SEMANA','FECHA','subir_NORMAL','mantenerse_NORMAL','bajar_NORMAL','subir_OPTIMISTA','mantenerse_OPTIMISTA','bajar_OPTIMISTA','subir_PESIMISTA','mantenerse_PESIMISTA','bajar_PESIMISTA'),with=FALSE]
