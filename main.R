@@ -13,10 +13,12 @@ library(scales)
 library(forecast)
 library(reshape)
 #library(fMarkovSwitching)
-source("helper_scraper.R")
-source("helper_hana.R")
-source("funciones.R")
-source('~/connections/connections.R')
+#source("helper_scraper.R", encoding = "latin1", local = TRUE)
+eval(parse('helper_scraper.R', encoding = 'UTF-8'))
+source("helper_hana.R", encoding = "UTF-8", local = TRUE)
+source("funciones.R", encoding = "UTF-8", local = TRUE)
+source('~/connections/connections.R', encoding = "UTF-8", local = TRUE)
+
 
 hanaConnection<-hana_connect()
 
@@ -25,6 +27,7 @@ descargar=TRUE
 marcoTotal<-data.table::setDT(openxlsx::read.xlsx("./xlsx/divisionPoliticoTerritorial.xlsx") )
 
 #1.	DESCARGAR DATA DEL MIMISTERIO DE SALUD ----
+dir.create("~/covid-19/data")
 if(descargar)
 {
   html<-"https://github.com/MinCiencia/Datos-COVID19"
@@ -34,7 +37,7 @@ if(descargar)
   descripcion_productos<-scraper_files_desc(html)
   descripcion<-data.table::data.table(descripcion_productos=descripcion_productos)
   descripcion[,producto:=unlist(strsplit(descripcion_productos,"-"))[1],by=seq_len(nrow(descripcion))]
-  data.table::fwrite(descripcion,file ="./data/desc_producto.csv" ,sep=";",dec=",")
+  data.table::fwrite(descripcion,file ="~/covid-19/diccionario/desc_producto.csv" ,sep=";",dec=",")
   
   for(i in 1:length(productos))
   {
