@@ -1,0 +1,88 @@
+descripcion_productos;producto
+Data Product 1 - Casos totales por comuna incremental;Data Product 1 
+Data Product 2 - Casos totales por comuna;Data Product 2 
+Data Product 3 - Casos totales por región incremental;Data Product 3 
+Data Product 4 - Casos totales por región;Data Product 4 
+Data Product 5 - Totales Nacionales Diarios;Data Product 5 
+Data Product 6 (contribuido) - Enriquecimiento del Data Product 2;Data Product 6 (contribuido) 
+Data Product 7 - Exámenes PCR por región;Data Product 7 
+Data Product 8 - Pacientes COVID-19 en UCI por región;Data Product 8 
+Data Product 9 - Pacientes COVID-19 en UCI por grupo de edad;Data Product 9 
+Data Product 10 - Fallecidos con COVID-19 por grupo de edad;Data Product 10 
+Data Product 11 (contribuido) - Enriquecimiento del Data Product 4;Data Product 11 (contribuido) 
+Data Product 4;Data Product 4
+Data Product 12 (contribuido) - Enriquecimiento del Data Product 7;Data Product 12 (contribuido) 
+Data Product 7;Data Product 7
+Data Product 13 - Casos nuevos totales por región, incremental;Data Product 13 
+Data Product 14 - Fallecidos con COVID-19 por región incremental;Data Product 14 
+Data Product 15 - Casos nuevos por fecha de inicio de síntomas por comuna;Data Product 15 
+Data Product 16 - Casos por genero y grupo de edad;Data Product 16 
+Data Product 17 - PCR acumulado e informado en el último día por tipo de establecimientos;Data Product 17 
+Data Product 18 - Tasa de incidencia historica por comuna y total regional;Data Product 18 
+Data Product 19 - Casos activos por fecha de inicio de síntomas y comuna;Data Product 19 
+Data Product 20 - Camas Críticas Disponbles a nivel nacional;Data Product 20 
+Data Product 21 - Sintomas por Casos Confirmados e informado en el último día;Data Product 21 
+Data Product 22 - Pacientes COVID-19 hospitalizados por grupo de edad;Data Product 22 
+Data Product 23 - Pacientes críticos COVID-19;Data Product 23 
+Data Product 24 - Hospitalización de pacientes COVID-19 en sistema integrado;Data Product 24 
+Data Product 25 - Casos actuales por fecha de inicio de síntomas y comuna;Data Product 25 
+Data Product 26 - Casos nuevos con síntomas por región;Data Product 26 
+Data Product 27 - Casos nuevos sin síntomas por región;Data Product 27 
+Data Product 28 - Casos nuevos por fecha de inicio de síntomas y región, informado por SEREMI;Data Product 28 
+Data Product 29 (contribuido)- Cuarentenas Activas e Históricas;Data Product 29 (contribuido)
+Data Product 30 - Pacientes en Ventilación Mecánica Intensiva confirmados con COVID-19;Data Product 30 
+Data Product 31 - Nacimientos en Chile;Data Product 31 
+Data Product 32 - Defunciones en Chile;Data Product 32 
+Data Product 33 (contribuido) - Índices de Movilidad Nacional a nivel comunal;Data Product 33 (contribuido) 
+Data Product 34 (contribuido) - Cruce entre cuarentenas y manzanas censales;Data Product 34 (contribuido) 
+Data Product 35 - Comorbilidad por Casos Confirmados;Data Product 35 
+Data Product 36 - Residencias Sanitarias;Data Product 36 
+Data Product 37 - Defunciones por COVID en Chile (provisorio);Data Product 37 
+Data Product 38 - Casos fallecidos por comuna;Data Product 38 
+Data Product 39 - Casos confirmados de COVID-19 según fecha de inicio de síntomas y notificación;Data Product 39 
+Data Product 40 - Transporte aéreo de pasajeros semanal;Data Product 40 
+Data Product 41 - Transacciones Bip!;Data Product 41 
+Data Product 42 - Viajes diarios por comuna en transporte público;Data Product 42 
+Data Product 43 - Datos  de calidad del aire por hora;Data Product 43 
+Data Product 44 - Evolución semanal de egresos hospitalarios pacientes COVID-19;Data Product 44 
+Data Product 45 - Casos Probables, No Notificados y Confirmados por FIS por comuna;Data Product 45 
+Data Product 46 - Curva Activos vs. Recuperados;Data Product 46 
+Data Product 47 - Media Movil de Casos Nuevos por 100,000Hab.;Data Product 47 
+Data Product 48 - Encuesta diaria realidad nacional medicina intensiva(SOCHIMI);Data Product 48 
+Data Product 49 - Positividad diaria y media móvil de exámenes PCR informados por día;Data Product 49 
+Data Product 50 - Defunciones notificadas por el Departamento de Estadísticas e Información Sanitaria (DEIS) por comuna;Data Product 50 
+Data Product 51 - Datos de movilidad, provistos por Instituto Sistemas Complejos de Ingeniería (ISCI) en conjunto con Entel y Entel Ocean;Data Product 51 
+Data Product 52 - Disponibilidad de camas críticas a nivel regional agrupado por semana;Data Product 52 
+Data Product 53 - Series corregidas sobre el número de casos confirmados, provistos por el grupo ICOVID Chile a nivel nacional, regional y provincial;Data Product 53 
+Data Product 54 - Número de reproducción efectivo, provisto por el grupo ICOVID Chile;Data Product 54 
+Data Product 55 - Positividad de examenes PCR según fecha del examen, provistos por ICOVID Chile;Data Product 55 
+Data Product 56 - Proporcion de casos confirmados según fecha de incio de síntomas, provistos por ICOVID Chile;Data Product 56 
+Data Product 57 - Casos Fallecidos y estado de Hospitalización por región;Data Product 57 
+Data Product 58 - Disponibilidad de camas críticas a nivel regional desagregado por día;Data Product 58 
+Data Product 59 - Curva de casos por etapa clínica (confirmados, probables y no-notificados), por fecha de notificación, desagregados por día;Data Product 59 
+Data Product 60 - Curva de casos por etapa clínica (confirmados, probables y no-notificados), por fecha de inicio de síntomas, desagregados por día;Data Product 60 
+Data Product 61 - Fallecidos confirmados por comuna (U07.1);Data Product 61 
+Data Product 62 - Curva de casos nuevos desagregados por día;Data Product 62 
+Data Product 63 - Número de personas notificadas con exámenes RT- PCR por Comuna;Data Product 63 
+Data Product 64 - Cantidad de Test por búsqueda activa de casos (BAC) por Comuna;Data Product 64 
+Data Product 65 - Indice de Positividad Test RT-PCR por Comuna;Data Product 65 
+Data Product 66 - Cobertura de testeo por Comuna;Data Product 66 
+Data Product 67 - Oportunidad en la notificación de casos nuevos por Comuna;Data Product 67 
+Data Product 68 - Cantidad de exámenes de PCR por cada 1000 habitantes por semana, según fecha del examen, provistos por ICOVID Chile;Data Product 68 
+Data Product 69 - Tasa de incidencia, por cada 100 mil habitantes, de casos confirmados diarios, provistos por el grupo ICOVID Chile;Data Product 69 
+Data Product 70 - Confirmación temprana de casos sintomáticos, provistos por el grupo ICOVID Chile;Data Product 70 
+Data Product 71 - Consulta temprana de casos sintomáticos, provistos por el grupo ICOVID Chile;Data Product 71 
+Data Product 72 - Tiempo de examen y laboratorio de casos sintomáticos, provistos por el grupo ICOVID Chile;Data Product 72 
+Data Product 73 - Tasa de incidencia de casos confirmados, por cada 100 mil habitantes, según grupo etario y semana epidemiológica, provistos por el Departamento de Epidemiología de MINSAL;Data Product 73 
+Data Product 74 - Etapas del plan paso a paso por comuna;Data Product 74 
+Data Product 75 - Media Móvil de casos nuevos y de casos activos;Data Product 75 
+Data Product 76 - Avance regional en Campaña de Vacunación COVID-19;Data Product 76 
+Data Product 77 - Avance por rango etario y región en Campaña de Vacunación COVID-19;Data Product 77 
+Data Product 78 - Avance por sexo y edad en Campaña de Vacunación COVID-19;Data Product 78 
+Data Product 79 - Avance por grupo prioritario en Campaña de Vacunación COVID-19;Data Product 79 
+Data Product 80 - Avance comunal en Campaña de Vacunación COVID-19;Data Product 80 
+Data Product 81 - Avance comunal por edad en Campaña de Vacunación COVID-19;Data Product 81 
+Data Product 82 - Movilidad por comuna;Data Product 82 
+Data Product 83 - Avance en Campaña de Vacunación COVID-19 por fabricante y tipo de establecimiento de vacunación;Data Product 83 
+Data Product 84 - Fallecidos por comuna/edad;Data Product 84 
+Data Product 85 - Datos del estudio de la prevalencia de anticuerpos SARS-CoV-2 en trabajadores del sector salud, durante la primera ola de COVID-19 en Chile;Data Product 85 

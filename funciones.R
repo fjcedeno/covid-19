@@ -830,4 +830,38 @@ funciones_prediccion_modelo_dev<-function(mod,testData)
 }
 
 
+funciones_f1_score <- function(predicted, expected, positive.class="1") {
+  predicted <- factor(as.character(predicted), levels=unique(as.character(expected)))
+  expected  <- as.factor(expected)
+  cm = as.matrix(table(expected, predicted))
+  
+  precision <- diag(cm) / colSums(cm)
+  recall <- diag(cm) / rowSums(cm)
+  f1 <-  ifelse(precision + recall == 0, 0, 2 * precision * recall / (precision + recall))
+  
+  #Assuming that F1 is zero when it's not possible compute it
+  f1[is.na(f1)] <- 0
+  
+  #Binary F1 or Multi-class macro-averaged F1
+  ifelse(nlevels(expected) == 2, f1[positive.class], mean(f1))
+}
+
+
+funciones_recall <- function(predicted, expected, positive.class="1") {
+  predicted <- factor(as.character(predicted), levels=unique(as.character(expected)))
+  expected  <- as.factor(expected)
+  cm = as.matrix(table(expected, predicted))
+  
+  precision <- diag(cm) / colSums(cm)
+  recall <- diag(cm) / rowSums(cm)
+  mean(recall)
+}
+
+funciones_precision <- function(predicted, expected, positive.class="1") {
+  predicted <- factor(as.character(predicted), levels=unique(as.character(expected)))
+  expected  <- as.factor(expected)
+  cm = as.matrix(table(expected, predicted))
+  precision <- diag(cm) / colSums(cm)
+  mean(precision)
+}
   
