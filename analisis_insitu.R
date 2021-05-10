@@ -37,4 +37,5 @@ precision<-funciones_precision(predicted=analisis$Y_ESTIMADO, expected=analisis$
 
 analisis[,c("acc","F1","recall","precision"):=list(acc,F1,recall,precision)]
 
-openxlsx::write.xlsx(analisis,file=paste0("./AnalisisResultados/analisis_pred_",fecha,"_.xlsx"))
+openxlsx::write.xlsx(analisis,file=paste0("./AnalisisResultados/analisis_mod_pred_",fecha,"_.xlsx"))
+
