@@ -1,3 +1,43 @@
+#0. SET WORKING DIRECTORY,CLEAN SCREEN, REMOVE VARIABLES----
+setwd('~/covid-19')
+cat("\014") 
+graphics.off()
+rm(list = ls())
+options(java.parameters = "-Xmx8g")
+options(encoding = 'UTF-8')
+#install.packages("fMarkovSwitching", repos="http://R-Forge.R-project.org")
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(scales)
+library(forecast)
+library(reshape)
+#library(fMarkovSwitching)
+#source("helper_scraper.R", encoding = "latin1", local = TRUE)
+eval(parse('helper_scraper.R', encoding = 'UTF-8'))
+source("helper_hana.R", encoding = "UTF-8", local = TRUE)
+source("funciones.R", encoding = "UTF-8", local = TRUE)
+source('~/connections/connections.R', encoding = "UTF-8", local = TRUE)
+
+
+emol<-scraper_emol_table()
+
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_GEOLOCALIZACION_FASE_ACTUAL_EMOL"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL")
+    hana_write_table(jdbcConnection = hanaConnection,df=emol,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=emol,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL")
+  }
+  
+}
+
+
 fecha="2021-05-10"
 resultadoDelModelo=data.table::setDT(openxlsx::read.xlsx(paste0("./Report/output_pred_",fecha,"_.xlsx")))
 resultadoDelModelo[,CODIGO_COMUNA:=as.character(CODIGO_COMUNA)]

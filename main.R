@@ -23,7 +23,7 @@ source('~/connections/connections.R', encoding = "UTF-8", local = TRUE)
 hanaConnection<-hana_connect()
 
 actualizar=TRUE
-descargar=TRUE
+descargar=FALSE
 marcoTotal<-data.table::setDT(openxlsx::read.xlsx("./xlsx/divisionPoliticoTerritorial.xlsx") )
 
 #1.	DESCARGAR DATA DEL MIMISTERIO DE SALUD ----
@@ -493,22 +493,7 @@ if(actualizar)
   
 }
 
-emol<-scraper_emol_table()
 
-
-if(actualizar)
-{
-  if(DBI::dbExistsTable(hanaConnection, "FC_GEOLOCALIZACION_FASE_ACTUAL_EMOL"))
-  {
-    hana_drop_table(jdbcConnection = hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL")
-    hana_write_table(jdbcConnection = hanaConnection,df=emol,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL")
-    
-  }else
-  {
-    hana_write_table(jdbcConnection = hanaConnection,df=emol,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL")
-  }
-  
-}
 
 
 
