@@ -26,7 +26,7 @@ hanaConnection<-hana_connect()
 
 actualizar=TRUE
 descargar=TRUE
-borrar=FALSE
+borrar=TRUE
 marcoTotal<-data.table::setDT(openxlsx::read.xlsx("./xlsx/divisionPoliticoTerritorial.xlsx") )
 
 #1.	DESCARGAR DATA DEL MIMISTERIO DE SALUD ----
@@ -470,6 +470,42 @@ if(actualizar)
   
 }
 
+hana_public_table(jdbcConnection=hanaConnection,tablain="GEOLOCALIZACION_TIENDAS_COMUNAS")
+hana_public_table(jdbcConnection=hanaConnection,tablain="COVID_PASO")
+
+
+MARCO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_DATOS_COMUNAS")
+POBLACION_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_POBLACION_COMUNAL")
+SUPERFICIE_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_COMUNAS_KM2")
+PASO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_PASO")
+PASO_COMUNAL[,SEMANA:=as.Date(SEMANA)]
+UCI_NACIONAL<-hana_get_complete_table_week(jdbcConnection =hanaConnection ,nombre="COVID_UCI_NACIONAL")
+cols_1<-c("FECHA","SEMANA")
+UCI_NACIONAL[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+data.table::fwrite(UCI_NACIONAL,file="./data_procesada/UCI_NACIONAL.csv",sep=";",dec=",")
+UCI_REGIONAL<-hana_get_complete_table_week(jdbcConnection =hanaConnection ,nombre="COVID_UCI_REGIONAL")
+UCI_REGIONAL[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+data.table::fwrite(UCI_REGIONAL,file="./data_procesada/UCI_REGIONAL.csv",sep=";",dec=",")
+COVID_CASOS_ACTIVOS=hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_CASOS_ACTIVOS")
+COVID_CASOS_ACTIVOS[,("SEMANA") := lapply(.SD,as.Date), .SDcols=c("SEMANA")]
+data.table::fwrite(COVID_CASOS_ACTIVOS,file="./data_procesada/COVID_CASOS_ACTIVOS.csv",sep=";",dec=",")
+COVID_CASOS_POSITIVIDAD=hana_get_complete_table_week(jdbcConnection=hanaConnection,nombre="COVID_CASOS_ACTIVOS_REGIONAL_PCR")
+COVID_CASOS_POSITIVIDAD[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+data.table::fwrite(COVID_CASOS_POSITIVIDAD,file="./data_procesada/COVID_CASOS_POSITIVIDAD.csv",sep=";",dec=",")
+PASO_ACTUAL=hana_get_complete_table(jdbcConnection=hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL")[,c("CODIGO_COMUNA","PASO","PASO_PROB"),with=FALSE][,CODIGO_COMUNA:=as.character(CODIGO_COMUNA)]
+data.table::fwrite(PASO_ACTUAL,file="./data_procesada/PASO_ACTUAL.csv",sep=";",dec=",")
+# 1.1 Tablas externas 
+COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY=hana_get_complete_table_externa_week(jdbcConnection=hanaConnection,nombre="AA_FCAST_CASOS_NUEVOS")
+data.table::fwrite(COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,file="./data_procesada/COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY.csv",sep=";",dec=",")
+COVID_CASOS_CONFIRMADOS_COMUNAS=POBLACION_COMUNAL[COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,on="CODIGO_COMUNA"]
+COVID_CASOS_CONFIRMADOS_COMUNAS<-COVID_CASOS_CONFIRMADOS_COMUNAS[!is.na(CASOS_CONFIRMADO_COMUNA),c('FECHA','POBLACION','CODIGO_COMUNA','CASOS_CONFIRMADO_COMUNA','SEMANA'),with=FALSE]
+COVID_CASOS_CONFIRMADOS_COMUNAS[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
+if(borrar)
+{
+  do.call(file.remove,list(list.files("~/covid-19/data", full.names = TRUE)))
+}
+
+
 
 emol<-scraper_emol_table()
 MARCO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_DATOS_COMUNAS")
@@ -531,45 +567,6 @@ if(actualizar)
   }
   
 }
-
-
-
-
-hana_public_table(jdbcConnection=hanaConnection,tablain="GEOLOCALIZACION_TIENDAS_COMUNAS")
-hana_public_table(jdbcConnection=hanaConnection,tablain="COVID_PASO")
-
-
-MARCO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_DATOS_COMUNAS")
-POBLACION_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_POBLACION_COMUNAL")
-SUPERFICIE_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_COMUNAS_KM2")
-PASO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_PASO")
-PASO_COMUNAL[,SEMANA:=as.Date(SEMANA)]
-UCI_NACIONAL<-hana_get_complete_table_week(jdbcConnection =hanaConnection ,nombre="COVID_UCI_NACIONAL")
-cols_1<-c("FECHA","SEMANA")
-UCI_NACIONAL[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
-data.table::fwrite(UCI_NACIONAL,file="./data_procesada/UCI_NACIONAL.csv",sep=";",dec=",")
-UCI_REGIONAL<-hana_get_complete_table_week(jdbcConnection =hanaConnection ,nombre="COVID_UCI_REGIONAL")
-UCI_REGIONAL[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
-data.table::fwrite(UCI_REGIONAL,file="./data_procesada/UCI_REGIONAL.csv",sep=";",dec=",")
-COVID_CASOS_ACTIVOS=hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_CASOS_ACTIVOS")
-COVID_CASOS_ACTIVOS[,("SEMANA") := lapply(.SD,as.Date), .SDcols=c("SEMANA")]
-data.table::fwrite(COVID_CASOS_ACTIVOS,file="./data_procesada/COVID_CASOS_ACTIVOS.csv",sep=";",dec=",")
-COVID_CASOS_POSITIVIDAD=hana_get_complete_table_week(jdbcConnection=hanaConnection,nombre="COVID_CASOS_ACTIVOS_REGIONAL_PCR")
-COVID_CASOS_POSITIVIDAD[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
-data.table::fwrite(COVID_CASOS_POSITIVIDAD,file="./data_procesada/COVID_CASOS_POSITIVIDAD.csv",sep=";",dec=",")
-PASO_ACTUAL=hana_get_complete_table(jdbcConnection=hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL")[,c("CODIGO_COMUNA","PASO","PASO_PROB"),with=FALSE][,CODIGO_COMUNA:=as.character(CODIGO_COMUNA)]
-data.table::fwrite(PASO_ACTUAL,file="./data_procesada/PASO_ACTUAL.csv",sep=";",dec=",")
-# 1.1 Tablas externas 
-COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY=hana_get_complete_table_externa_week(jdbcConnection=hanaConnection,nombre="AA_FCAST_CASOS_NUEVOS")
-data.table::fwrite(COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,file="./data_procesada/COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY.csv",sep=";",dec=",")
-COVID_CASOS_CONFIRMADOS_COMUNAS=POBLACION_COMUNAL[COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,on="CODIGO_COMUNA"]
-COVID_CASOS_CONFIRMADOS_COMUNAS<-COVID_CASOS_CONFIRMADOS_COMUNAS[!is.na(CASOS_CONFIRMADO_COMUNA),c('FECHA','POBLACION','CODIGO_COMUNA','CASOS_CONFIRMADO_COMUNA','SEMANA'),with=FALSE]
-COVID_CASOS_CONFIRMADOS_COMUNAS[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
-if(borrar)
-{
-  do.call(file.remove,list(list.files("~/covid-19/data", full.names = TRUE)))
-}
-
 end_time=Sys.time()
 print(end_time-start_time)
 
