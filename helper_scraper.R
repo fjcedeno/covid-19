@@ -59,32 +59,10 @@ scraper_emol_table<-function()
   html<-"https://www.emol.com/especiales/2020/internacional/coronavirus/guia-basica.asp"
   out=html %>%read_html() %>% html_nodes('body #inner-wrap #nota_tabla_emol') %>%  html_nodes('table') %>% html_table() %>% data.table::rbindlist()
   data.table::setnames(out,old=names(out),new=c("COMUNA_RESIDENCIA_DESC","PASO"),skip_absent = TRUE)
-  MARCO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_DATOS_COMUNAS")
-  
-  out[,COMUNA_RESIDENCIA:=unlist(strsplit(COMUNA_RESIDENCIA_DESC,"Desde"))[1],seq_len(nrow(out))]
-  out[,Paso_prob:=unlist(strsplit(COMUNA_RESIDENCIA_DESC,"Desde"))[2],seq_len(nrow(out))]
-  
-  out[,COMUNA_RESIDENCIA:=gsub(">","",COMUNA_RESIDENCIA),by=seq_len(nrow(out))]
-  out[,COMUNA_RESIDENCIA:=raster::trim(COMUNA_RESIDENCIA),by=seq_len(nrow(out))]
-  out[,Paso_prob:=raster::trim(Paso_prob),by=seq_len(nrow(out))]
-  
-  out[,Paso_prob:=tail(unlist(strsplit(Paso_prob," ")),1),seq_len(nrow(out))]
-  out[,Paso_prob:=raster::trim(Paso_prob),by=seq_len(nrow(out))]
-  emolEtapas<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/emolEtapas.xlsx")
-  for(i in 1:nrow(emolEtapas))
-  {
-    out[Paso_prob==emolEtapas$ETAPAS_DESC[i],PASO:=emolEtapas$ETAPAS[i]]
-  }
-  emolComuna<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/emolComuna.xlsx")
-  for(j in 1:nrow(emolComuna))
-  { 
-    out[COMUNA_RESIDENCIA== emolComuna$emol_comuna[j],COMUNA_RESIDENCIA:=emolComuna$comuna[j]]
-  }
-  out<-MARCO_COMUNAL[out,on="COMUNA_RESIDENCIA"]
-  out<-out[,c("CODIGO_COMUNA","COMUNA_RESIDENCIA","PASO","Paso_prob"),with=FALSE]
-  out[,Paso_prob:=!is.na(Paso_prob)]
   return(out)
 }
+
+
 
 
 

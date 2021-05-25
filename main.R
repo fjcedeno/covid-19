@@ -18,11 +18,10 @@ eval(parse('helper_scraper.R', encoding = 'UTF-8'))
 source("helper_hana.R", encoding = "UTF-8", local = TRUE)
 source("funciones.R", encoding = "UTF-8", local = TRUE)
 source('~/connections/connections.R', encoding = "UTF-8", local = TRUE)
-
-
+#Load Xlsx
 emolRegion<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/minSalRegiones.xlsx")
-
-
+start_time=Sys.time()
+print(start_time)
 hanaConnection<-hana_connect()
 
 actualizar=TRUE
@@ -156,8 +155,6 @@ if(actualizar)
 listfiles<-list.files("./data",patter="producto4_",full.names = TRUE)
 CasosActivosPorRegion<-base::lapply(listfiles,data.table::fread)
 CasosActivosPorRegion <- data.table::rbindlist(CasosActivosPorRegion,fill=TRUE)
-
-
 for( j in 1:nrow(emolRegion))
 {
   CasosActivosPorRegion[Region==emolRegion$minCienciaRegiones[j],Region:=emolRegion$Region[j]]
@@ -168,11 +165,8 @@ CasosActivosPorRegion[,name:=NULL]
 data.table::setnames(CasosActivosPorRegion,c("Region","Casos nuevos totales","Casos nuevos"),c("region_residencia","casos_nuevos_totales","casos_nuevos"),skip_absent = TRUE)
 CasosActivosPorRegion[is.na(casos_nuevos_totales),casos_nuevos_totales:=casos_nuevos]
 CasosActivosPorRegion<-CasosActivosPorRegion[,c("fecha","region_residencia","casos_nuevos_totales"),with=FALSE]
-
-
-
+CasosActivosPorRegion[,fecha:=as.Date(fecha)]
 # 
-
 pcrPorRegion<-data.table::fread("./data/producto7_PCR_std.csv")
 for( j in 1:nrow(emolRegion))
 {
@@ -181,13 +175,13 @@ for( j in 1:nrow(emolRegion))
 pcrPorRegion[,name:=NULL]
 data.table::setnames(pcrPorRegion,c("Region","Codigo region","Poblacion","fecha","numero"),c("region_residencia","codigo_region","Poblacion","fecha","numero_pcr"))
 pcrPorRegion[,Poblacion:=NULL]
+pcrPorRegion[,fecha:=as.Date(fecha)]
 
 
-CasosActivosPorRegion[,fecha:=as.Date(fecha)]
 positividadRegional<-CasosActivosPorRegion[pcrPorRegion,on=c("fecha","region_residencia")]
 positividadRegional<-positividadRegional[,c("fecha","codigo_region","region_residencia","casos_nuevos_totales","numero_pcr")]
-
-positividadRegional<-na.omit(positividadRegional)
+#positividadRegional<-na.omit(positividadRegional)
+positividadRegional<-funciones_fill_na(positividadRegional)
 positividadRegional[,fecha:=as.Date(fecha)]
 if(actualizar)
 {
@@ -202,11 +196,8 @@ if(actualizar)
   }
   
 }
-
 # 2.2 Casos UCI regional y nacional----
-
-
-camasUCI<-data.table::fread("./data/producto52_Camas_UCI_std.csv",sep=";",dec=",",encoding="Latin-1")
+camasUCI<-data.table::fread("./data/producto52_Camas_UCI_std.csv",sep=";",dec=",")
 camasUCI[,Fecha:=as.character(Fecha)]
 camasUCI[,Fecha:=raster::trim(Fecha),by=seq_len(nrow(camasUCI))]
 camasUCI[,Fecha:=as.Date(Fecha)]
@@ -459,9 +450,6 @@ if(actualizar)
 
 
 # 2.9 movilidad comunas ----
-
-
-
 TiendasGeolocalizaion<-data.table::setDT(openxlsx::read.xlsx(
   xlsxFile="./xlsx/dataTiendasCencoComuna.xlsx",
   sheet = "Locales"))
@@ -484,7 +472,52 @@ if(actualizar)
 
 
 emol<-scraper_emol_table()
+MARCO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_DATOS_COMUNAS")
+emol[,COMUNA_RESIDENCIA:=unlist(strsplit(COMUNA_RESIDENCIA_DESC,"Desde"))[1],seq_len(nrow(emol))]
+emol[,Paso_prob:=unlist(strsplit(COMUNA_RESIDENCIA_DESC,"Desde"))[2],seq_len(nrow(emol))]
+emol[,COMUNA_RESIDENCIA:=gsub(">","",COMUNA_RESIDENCIA),by=seq_len(nrow(emol))]
+emol[,COMUNA_RESIDENCIA:=raster::trim(COMUNA_RESIDENCIA),by=seq_len(nrow(emol))]
+emol[,Paso_prob:=raster::trim(Paso_prob),by=seq_len(nrow(emol))]
+emol[,Paso_prob:=tail(unlist(strsplit(Paso_prob," ")),1),seq_len(nrow(emol))]
+emol[,Paso_prob:=raster::trim(Paso_prob),by=seq_len(nrow(emol))]
 
+emolComuna<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/emolComuna.xlsx")
+for(j in 1:nrow(emolComuna))
+{ 
+  emol[COMUNA_RESIDENCIA== emolComuna$emol_comuna[j],COMUNA_RESIDENCIA:=emolComuna$comuna[j]]
+}
+emol<-MARCO_COMUNAL[emol,on="COMUNA_RESIDENCIA"]
+#
+emolDaily<-data.table::copy(emol)
+emolDaily[,FECHA:=Sys.Date()]
+emolDaily<-emolDaily[,c("CODIGO_COMUNA","PASO","FECHA"),with=FALSE]
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_GEOLOCALIZACION_FASE_ACTUAL_EMOL_DAILY"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL_DAILY_AUX")
+    hana_write_table(jdbcConnection = hanaConnection,df=emolDaily,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL_DAILY_AUX")
+    hana_insert_table(jdbcConnection = hanaConnection,tablain="GEOLOCALIZACION_FASE_ACTUAL_EMOL_DAILY_AUX",tablafin="GEOLOCALIZACION_FASE_ACTUAL_EMOL_DAILY")
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL_DAILY_AUX")
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=emolDaily,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL_DAILY")
+  }
+  
+}
+
+
+
+#
+
+emolEtapas<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/emolEtapas.xlsx")
+for(i in 1:nrow(emolEtapas))
+{
+  emol[Paso_prob==emolEtapas$ETAPAS_DESC[i],PASO:=emolEtapas$ETAPAS[i]]
+}
+#
+emol<-emol[,c("CODIGO_COMUNA","COMUNA_RESIDENCIA","PASO","Paso_prob"),with=FALSE]
+emol[,Paso_prob:=!is.na(Paso_prob)]
 if(actualizar)
 {
   if(DBI::dbExistsTable(hanaConnection, "FC_GEOLOCALIZACION_FASE_ACTUAL_EMOL"))
@@ -537,4 +570,6 @@ if(borrar)
   do.call(file.remove,list(list.files("~/covid-19/data", full.names = TRUE)))
 }
 
+end_time=Sys.time()
+print(end_time-start_time)
 
