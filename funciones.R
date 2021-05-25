@@ -440,46 +440,51 @@ funciones_umbral_positividad_pred_parallel<-function(X,regionComuna){
   dat=X$dat
   pred_pcr=X$pred_pcr
   pred_casos=X$pred_casos
-  pred_pcr[,FECHA:=as.Date(seq.Date(as.Date(max(dat$FECHA))+1,by="days",length.out = nrow(pred_pcr)))]
-  pred_pcr[,c("REGION_RESIDENCIA"):=list(unique(dat$REGION_RESIDENCIA))]
-  pred_pcr=pred_pcr[,c( "FECHA","REGION_RESIDENCIA","fit","lower","upper"),with=FALSE]
-  data.table::setnames(pred_pcr,c("fit","lower","upper"),c("NORMAL","OPTIMISTA","PESIMISTA"),skip_absent = TRUE)
-  pred_pcr_melt<-data.table::melt(pred_pcr,id.vars=c("FECHA","REGION_RESIDENCIA"), measure.vars=c("NORMAL","OPTIMISTA","PESIMISTA"),
-                                  variable.name = "ESCENARIO", value.name = "NUMERO_PCR")
-  
-  
-  pred_casos[,FECHA:=as.Date(seq.Date(as.Date(max(dat$FECHA))+1,by="days",length.out = nrow(pred_casos)))]
-  pred_casos[,c("REGION_RESIDENCIA"):=list(unique(dat$REGION_RESIDENCIA))]
-  pred_casos=pred_casos[,c( "FECHA","REGION_RESIDENCIA","fit","lower","upper"),with=FALSE]
-  data.table::setnames(pred_casos,c("fit","lower","upper"),c("NORMAL","OPTIMISTA","PESIMISTA"),skip_absent = TRUE)
-  pred_casos_melt<-data.table::melt(pred_casos,id.vars=c("FECHA","REGION_RESIDENCIA"), measure.vars=c("NORMAL","OPTIMISTA","PESIMISTA"),
-                                    variable.name = "ESCENARIO", value.name = "CASOS_NUEVOS_TOTALES")
-  
-  pred_used=pred_casos_melt[pred_pcr_melt,on=c("FECHA","REGION_RESIDENCIA","ESCENARIO")]
-  pred_used[, SEMANA:= as.Date(unique(cut(as.Date(FECHA), "week"))),by=seq_len(nrow(pred_used))]
-  pred_used_split<-split(pred_used,by="ESCENARIO")
-  cols_1=c("CASOS_NUEVOS_TOTALES","NUMERO_PCR")
-  cols_2="ESCENARIO"
-  
-  dat=unique(dat[,c("FECHA","SEMANA","REGION_RESIDENCIA","CASOS_NUEVOS_TOTALES","NUMERO_PCR")])
-  for(i in 1:length(pred_used_split)){
-    pred_used_split[[i]]<-data.table::rbindlist(list(dat,pred_used_split[[i]]),fill = TRUE)
-    pred_used_split[[i]][, (cols_1) := lapply(.SD,zoo::na.locf), .SDcols=cols_1]
-    pred_used_split[[i]][, (cols_2) := NULL]
-    pred_used_split[[i]]=pred_used_split[[i]][, .SD[c(.N)], by="SEMANA"]
+  if(!is.null(dat))
+  {
+    pred_pcr[,FECHA:=as.Date(seq.Date(as.Date(max(dat$FECHA))+1,by="days",length.out = nrow(pred_pcr)))]
+    pred_pcr[,c("REGION_RESIDENCIA"):=list(unique(dat$REGION_RESIDENCIA))]
+    pred_pcr=pred_pcr[,c( "FECHA","REGION_RESIDENCIA","fit","lower","upper"),with=FALSE]
+    data.table::setnames(pred_pcr,c("fit","lower","upper"),c("NORMAL","OPTIMISTA","PESIMISTA"),skip_absent = TRUE)
+    pred_pcr_melt<-data.table::melt(pred_pcr,id.vars=c("FECHA","REGION_RESIDENCIA"), measure.vars=c("NORMAL","OPTIMISTA","PESIMISTA"),
+                                    variable.name = "ESCENARIO", value.name = "NUMERO_PCR")
+    
+    
+    pred_casos[,FECHA:=as.Date(seq.Date(as.Date(max(dat$FECHA))+1,by="days",length.out = nrow(pred_casos)))]
+    pred_casos[,c("REGION_RESIDENCIA"):=list(unique(dat$REGION_RESIDENCIA))]
+    pred_casos=pred_casos[,c( "FECHA","REGION_RESIDENCIA","fit","lower","upper"),with=FALSE]
+    data.table::setnames(pred_casos,c("fit","lower","upper"),c("NORMAL","OPTIMISTA","PESIMISTA"),skip_absent = TRUE)
+    pred_casos_melt<-data.table::melt(pred_casos,id.vars=c("FECHA","REGION_RESIDENCIA"), measure.vars=c("NORMAL","OPTIMISTA","PESIMISTA"),
+                                      variable.name = "ESCENARIO", value.name = "CASOS_NUEVOS_TOTALES")
+    
+    pred_used=pred_casos_melt[pred_pcr_melt,on=c("FECHA","REGION_RESIDENCIA","ESCENARIO")]
+    pred_used[, SEMANA:= as.Date(unique(cut(as.Date(FECHA), "week"))),by=seq_len(nrow(pred_used))]
+    pred_used_split<-split(pred_used,by="ESCENARIO")
+    cols_1=c("CASOS_NUEVOS_TOTALES","NUMERO_PCR")
+    cols_2="ESCENARIO"
+    
+    dat=unique(dat[,c("FECHA","SEMANA","REGION_RESIDENCIA","CASOS_NUEVOS_TOTALES","NUMERO_PCR")])
+    for(i in 1:length(pred_used_split)){
+      pred_used_split[[i]]<-data.table::rbindlist(list(dat,pred_used_split[[i]]),fill = TRUE)
+      pred_used_split[[i]][, (cols_1) := lapply(.SD,zoo::na.locf), .SDcols=cols_1]
+      pred_used_split[[i]][, (cols_2) := NULL]
+      pred_used_split[[i]]=pred_used_split[[i]][, .SD[c(.N)], by="SEMANA"]
+    }
+    pred_used_split_out<-base::lapply(pred_used_split,funciones_ordenar_fecha_semana,tipo="SEMANA")
+    pred_used_split_out<-base::lapply(pred_used_split,funciones_umbral_positividad)
+    out=base::lapply(X=pred_used_split_out,FUN=utils::tail,n=nrow(pred_used))
+    
+    out=Map(funciones_add_column, out , names(out))
+    out=data.table::rbindlist(out)
+    data.table::setnames(out,old="name",new="ESCENARIOS")
+    out=regionComuna[out,on="REGION_RESIDENCIA",allow.cartesian=TRUE]
+    
+    out<-out[,c("FECHA","SEMANA","CODIGO_COMUNA","ESCENARIOS","FASE_POSITIVIDAD_1","FASE_POSITIVIDAD_2","FASE_POSITIVIDAD_3","FASE_POSITIVIDAD_4")]
+    out[,FECHA:=as.Date(FECHA)]
+    out<-unique(out)
+  }else{
+    out=data.table::data.table( FECHA=structure(integer(), class = 'Date'),SEMANA=structure(integer(), class = 'Date'),CODIGO_COMUNA=character(),ESCENARIOS=character(),FASE_POSITIVIDAD_1=logical(),FASE_POSITIVIDAD_2=logical(),FASE_POSITIVIDAD_3=logical(),FASE_POSITIVIDAD_4=logical())
   }
-  pred_used_split_out<-base::lapply(pred_used_split,funciones_ordenar_fecha_semana,tipo="SEMANA")
-  pred_used_split_out<-base::lapply(pred_used_split,funciones_umbral_positividad)
-  out=base::lapply(X=pred_used_split_out,FUN=utils::tail,n=nrow(pred_used))
-  
-  out=Map(funciones_add_column, out , names(out))
-  out=data.table::rbindlist(out)
-  data.table::setnames(out,old="name",new="ESCENARIOS")
-  out=regionComuna[out,on="REGION_RESIDENCIA",allow.cartesian=TRUE]
-  
-  out<-out[,c("FECHA","SEMANA","CODIGO_COMUNA","ESCENARIOS","FASE_POSITIVIDAD_1","FASE_POSITIVIDAD_2","FASE_POSITIVIDAD_3","FASE_POSITIVIDAD_4")]
-  out[,FECHA:=as.Date(FECHA)]
-  out<-unique(out)
   return(out)
 }
 

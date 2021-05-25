@@ -21,7 +21,7 @@ source('~/connections/connections.R')
 start_time=Sys.time()
 print(start_time)
 # 1. CARGAR DATA HANA ----
-if(FALSE)
+if(TRUE)
 {
   hanaConnection<-hana_connect()
   MARCO_COMUNAL<-hana_get_complete_table(jdbcConnection=hanaConnection,nombre="COVID_DATOS_COMUNAS")
@@ -372,7 +372,7 @@ testPositividad_REGIONAL<-split(testPositividad_REGIONAL,by=c("CODIGO_COMUNA","E
 testPositividad_REGIONAL<-parallel::parLapply(cl=clust,testPositividad_REGIONAL,fun = funciones_ordenar_fecha_semana,tipo="FECHA")
 testPositividad_REGIONAL<-data.table::rbindlist(testPositividad_REGIONAL)
 testPositividad_REGIONAL=testPositividad_REGIONAL[, .SD[c(.N)], by=c("SEMANA","CODIGO_COMUNA","ESCENARIOS")][,c("SEMANA","CODIGO_COMUNA","ESCENARIOS","FASE_POSITIVIDAD_1","FASE_POSITIVIDAD_2","FASE_POSITIVIDAD_3","FASE_POSITIVIDAD_4"),with=FALSE]
-
+testPositividad_REGIONAL[,CODIGO_COMUNA:=as.numeric(CODIGO_COMUNA)]
 
 
 testDataUCI_REGIONAL<-data.table::rbindlist(testDataUCI_REGIONAL)
@@ -381,7 +381,7 @@ testDataUCI_REGIONAL<-split(testDataUCI_REGIONAL,by=c("CODIGO_COMUNA","ESCENARIO
 testDataUCI_REGIONAL<-parallel::parLapply(cl=clust,testDataUCI_REGIONAL,fun = funciones_ordenar_fecha_semana,tipo="FECHA")
 testDataUCI_REGIONAL<-data.table::rbindlist(testDataUCI_REGIONAL)
 testDataUCI_REGIONAL=testDataUCI_REGIONAL[, .SD[c(.N)], by=c("SEMANA","CODIGO_COMUNA","ESCENARIOS")][,c("SEMANA","CODIGO_COMUNA","ESCENARIOS","FASE_REG_1","FASE_REG_2","FASE_REG_3","FASE_REG_4"),with=FALSE]
-
+testDataUCI_REGIONAL[,CODIGO_COMUNA:=as.numeric(CODIGO_COMUNA)]
 
 
 testCASOS_CONFIRMADO_REGIONAL<-list()

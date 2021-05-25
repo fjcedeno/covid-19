@@ -18,24 +18,9 @@ eval(parse('helper_scraper.R', encoding = 'UTF-8'))
 source("helper_hana.R", encoding = "UTF-8", local = TRUE)
 source("funciones.R", encoding = "UTF-8", local = TRUE)
 source('~/connections/connections.R', encoding = "UTF-8", local = TRUE)
+hanaConnection<-hana_connect()
 
 
-emol<-scraper_emol_table()
-
-
-if(actualizar)
-{
-  if(DBI::dbExistsTable(hanaConnection, "FC_GEOLOCALIZACION_FASE_ACTUAL_EMOL"))
-  {
-    hana_drop_table(jdbcConnection = hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL")
-    hana_write_table(jdbcConnection = hanaConnection,df=emol,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL")
-    
-  }else
-  {
-    hana_write_table(jdbcConnection = hanaConnection,df=emol,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL")
-  }
-  
-}
 
 
 fecha="2021-05-10"

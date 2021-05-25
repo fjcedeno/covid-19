@@ -20,14 +20,18 @@ source("funciones.R", encoding = "UTF-8", local = TRUE)
 source('~/connections/connections.R', encoding = "UTF-8", local = TRUE)
 
 
+emolRegion<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/minSalRegiones.xlsx")
+
+
 hanaConnection<-hana_connect()
 
 actualizar=TRUE
-descargar=FALSE
+descargar=TRUE
+borrar=FALSE
 marcoTotal<-data.table::setDT(openxlsx::read.xlsx("./xlsx/divisionPoliticoTerritorial.xlsx") )
 
 #1.	DESCARGAR DATA DEL MIMISTERIO DE SALUD ----
-dir.create("~/covid-19/data")
+dir.create("~/covid-19/data",showWarnings = FALSE)
 if(descargar)
 {
   html<-"https://github.com/MinCiencia/Datos-COVID19"
@@ -152,16 +156,13 @@ if(actualizar)
 listfiles<-list.files("./data",patter="producto4_",full.names = TRUE)
 CasosActivosPorRegion<-base::lapply(listfiles,data.table::fread)
 CasosActivosPorRegion <- data.table::rbindlist(CasosActivosPorRegion,fill=TRUE)
-CasosActivosPorRegion[Region=="Oâ€™Higgins",Region:="Libertador General Bernardo O'Higgins"]
-CasosActivosPorRegion[Region%like%"Araucan",Region:="La Araucanía"]
-CasosActivosPorRegion[Region=="AysÃ©n",Region:="Aysén del General Carlos Ibáñez del Campo"]
-CasosActivosPorRegion[Region=="Ã‘uble",Region:="Ñuble"]
-CasosActivosPorRegion[Region%like%"Biob" ,Region:="Biobío"]
-CasosActivosPorRegion[Region%like%"Los RÃ",Region:="Los Ríos"]
-CasosActivosPorRegion[Region=="Metropolitana",Region:="Metropolitana de Santiago"]
-CasosActivosPorRegion[Region%like%"Tarapac",Region:="Tarapacá" ]
-CasosActivosPorRegion[Region%like%"Valpara",Region:="Valparaíso"]
-CasosActivosPorRegion[Region%like%"Magallanes",Region:="Magallanes y de la Antártica Chilena"]
+
+
+for( j in 1:nrow(emolRegion))
+{
+  CasosActivosPorRegion[Region==emolRegion$minCienciaRegiones[j],Region:=emolRegion$Region[j]]
+}
+
 CasosActivosPorRegion[,fecha:=paste0(head(unlist(base::strsplit(name,split="-")),3),collapse = "-"),by=seq_len(nrow(CasosActivosPorRegion))]
 CasosActivosPorRegion[,name:=NULL]
 data.table::setnames(CasosActivosPorRegion,c("Region","Casos nuevos totales","Casos nuevos"),c("region_residencia","casos_nuevos_totales","casos_nuevos"),skip_absent = TRUE)
@@ -173,16 +174,10 @@ CasosActivosPorRegion<-CasosActivosPorRegion[,c("fecha","region_residencia","cas
 # 
 
 pcrPorRegion<-data.table::fread("./data/producto7_PCR_std.csv")
-pcrPorRegion[Region=="Oâ€™Higgins",Region:="Libertador General Bernardo O'Higgins"]
-pcrPorRegion[Region%like%"Araucan",Region:="La Araucanía"]
-pcrPorRegion[Region=="AysÃ©n",Region:="Aysén del General Carlos Ibáñez del Campo"]
-pcrPorRegion[Region=="Ã‘uble",Region:="Ñuble"]
-pcrPorRegion[Region%like%"Biob" ,Region:="Biobío"]
-pcrPorRegion[Region%like%"Los RÃ",Region:="Los Ríos"]
-pcrPorRegion[Region=="Metropolitana",Region:="Metropolitana de Santiago"]
-pcrPorRegion[Region%like%"Tarapac",Region:="Tarapacá" ]
-pcrPorRegion[Region%like%"Valpara",Region:="Valparaíso"]
-pcrPorRegion[Region%like%"Magallanes",Region:="Magallanes y de la Antártica Chilena"]
+for( j in 1:nrow(emolRegion))
+{
+  pcrPorRegion[Region==emolRegion$minCienciaRegiones[j],Region:=emolRegion$Region[j]]
+}
 pcrPorRegion[,name:=NULL]
 data.table::setnames(pcrPorRegion,c("Region","Codigo region","Poblacion","fecha","numero"),c("region_residencia","codigo_region","Poblacion","fecha","numero_pcr"))
 pcrPorRegion[,Poblacion:=NULL]
@@ -218,16 +213,10 @@ camasUCI[,Fecha:=as.Date(Fecha)]
 camasUCI[,name:=NULL]
 UCI<-dcast(camasUCI, formula=Region+Fecha~Serie,value.var="Casos")
 UCI[,Fecha:=as.Date(Fecha)]
-UCI[Region=="Oâ€™Higgins",Region:="Libertador General Bernardo O'Higgins"]
-UCI[Region%like%"Araucan",Region:="La Araucanía"]
-UCI[Region=="AysÃ©n",Region:="Aysén del General Carlos Ibáñez del Campo"]
-UCI[Region=="Ã‘uble",Region:="Ñuble"]
-UCI[Region%like%"Biob" ,Region:="Biobío"]
-UCI[Region%like%"Los RÃ",Region:="Los Ríos"]
-UCI[Region=="Metropolitana",Region:="Metropolitana de Santiago"]
-UCI[Region%like%"Tarapac",Region:="Tarapacá" ]
-UCI[Region%like%"Valpara",Region:="Valparaíso"]
-UCI[Region%like%"Magallanes",Region:="Magallanes y de la Antártica Chilena"]
+for( j in 1:nrow(emolRegion))
+{
+  UCI[Region==emolRegion$minCienciaRegiones[j],Region:=emolRegion$Region[j]]
+}
 data.table::setnames(UCI,"Region","region_residencia")
 uciNacional=UCI[region_residencia=="Total"]
 UCI=UCI[region_residencia!="Total"]
@@ -494,6 +483,22 @@ if(actualizar)
 }
 
 
+emol<-scraper_emol_table()
+
+if(actualizar)
+{
+  if(DBI::dbExistsTable(hanaConnection, "FC_GEOLOCALIZACION_FASE_ACTUAL_EMOL"))
+  {
+    hana_drop_table(jdbcConnection = hanaConnection,nombre="GEOLOCALIZACION_FASE_ACTUAL_EMOL")
+    hana_write_table(jdbcConnection = hanaConnection,df=emol,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL")
+    
+  }else
+  {
+    hana_write_table(jdbcConnection = hanaConnection,df=emol,nombre = "GEOLOCALIZACION_FASE_ACTUAL_EMOL")
+  }
+  
+}
+
 
 
 
@@ -527,5 +532,9 @@ data.table::fwrite(COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,file="./data_procesada/
 COVID_CASOS_CONFIRMADOS_COMUNAS=POBLACION_COMUNAL[COVID_CASOS_CONFIRMADOS_COMUNAS_QUERY,on="CODIGO_COMUNA"]
 COVID_CASOS_CONFIRMADOS_COMUNAS<-COVID_CASOS_CONFIRMADOS_COMUNAS[!is.na(CASOS_CONFIRMADO_COMUNA),c('FECHA','POBLACION','CODIGO_COMUNA','CASOS_CONFIRMADO_COMUNA','SEMANA'),with=FALSE]
 COVID_CASOS_CONFIRMADOS_COMUNAS[,(cols_1) := lapply(.SD,as.Date), .SDcols=c("FECHA","SEMANA")]
-do.call(file.remove,list(list.files("~/covid-19/data", full.names = TRUE)))
+if(borrar)
+{
+  do.call(file.remove,list(list.files("~/covid-19/data", full.names = TRUE)))
+}
+
 

@@ -70,26 +70,19 @@ scraper_emol_table<-function()
   
   out[,Paso_prob:=tail(unlist(strsplit(Paso_prob," ")),1),seq_len(nrow(out))]
   out[,Paso_prob:=raster::trim(Paso_prob),by=seq_len(nrow(out))]
-  
-  out[,PASO:=ifelse(is.na(Paso_prob),PASO,ifelse(Paso_prob=="Transición",2,ifelse(Paso_prob=="Preparación",3,ifelse(Paso_prob=="Inicial",4,ifelse(Paso_prob=="Cuarentena",1,NA)))))]
-  
-  
-  out[COMUNA_RESIDENCIA=="Til Til",COMUNA_RESIDENCIA:="Tiltil"]
-  out[COMUNA_RESIDENCIA=="Paihuano",COMUNA_RESIDENCIA:="Paiguano"]
-  out[COMUNA_RESIDENCIA=="Marchigüe",COMUNA_RESIDENCIA:="Marchihue"]
-  out[COMUNA_RESIDENCIA=="Ránquil",COMUNA_RESIDENCIA:="Ranquil"]
-  out[COMUNA_RESIDENCIA=="Los Álamos",COMUNA_RESIDENCIA:="Los Alamos"]
-  out[COMUNA_RESIDENCIA=="Quilac",COMUNA_RESIDENCIA:="Quilaco" ]
-  out[COMUNA_RESIDENCIA=="Aysén",COMUNA_RESIDENCIA:="Aisén"]
-  out[COMUNA_RESIDENCIA=="Coyhaique",COMUNA_RESIDENCIA:="Coihaique"]
-  out[COMUNA_RESIDENCIA=="Llay-Llay",COMUNA_RESIDENCIA:="Llaillay"]
-  out[COMUNA_RESIDENCIA=="Los Ángeles",COMUNA_RESIDENCIA:="Los Angeles"]
-  
+  emolEtapas<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/emolEtapas.xlsx")
+  for(i in 1:nrow(emolEtapas))
+  {
+    out[Paso_prob==emolEtapas$ETAPAS_DESC[i],PASO:=emolEtapas$ETAPAS[i]]
+  }
+  emolComuna<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/emolComuna.xlsx")
+  for(j in 1:nrow(emolComuna))
+  { 
+    out[COMUNA_RESIDENCIA== emolComuna$emol_comuna[j],COMUNA_RESIDENCIA:=emolComuna$comuna[j]]
+  }
   out<-MARCO_COMUNAL[out,on="COMUNA_RESIDENCIA"]
   out<-out[,c("CODIGO_COMUNA","COMUNA_RESIDENCIA","PASO","Paso_prob"),with=FALSE]
   out[,Paso_prob:=!is.na(Paso_prob)]
-  
-  
   return(out)
 }
 
