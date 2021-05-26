@@ -337,7 +337,7 @@ ckt=c("R_UMBRAL",'DIMINUCION_SOTENIDA_2SEM','DIMINUCION_SOTENIDA_3SEM','TASA_PRO
       "FASE_POSITIVIDAD_1","FASE_POSITIVIDAD_2","FASE_POSITIVIDAD_3","FASE_POSITIVIDAD_4")
 trainData[ , (fkt) := lapply(.SD, factor,levels=c("1","2","3","4")), .SDcols = fkt]
 trainData[ , (ckt) := lapply(.SD, factor,levels=c("TRUE","FALSE")), .SDcols = ckt]
-trainData<-split(trainData,by="CLUSTER")
+trainData <-split(trainData,by="CLUSTER")
 mod<-parallel::parLapply(cl=clust,trainData,fun=funciones_naive_bayes)
 #mod<-parallel::parLapply(cl=clust,trainData,fun=funciones_naive_bayes_dev)
 
