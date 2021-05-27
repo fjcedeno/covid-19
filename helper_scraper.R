@@ -56,9 +56,8 @@ scraper_wiki_table<-function()
 
 scraper_emol_table<-function()
 {
-  html<-"https://www.emol.com/especiales/2020/internacional/coronavirus/guia-basica.asp"
-  html<-download.file(html, destfile = '~/covid-19/html/emol.html')
-  out=read_html('~/covid-19/html/emol.html') %>% html_nodes('body #inner-wrap #nota_tabla_emol') %>%  html_nodes('table') %>% html_table() %>% data.table::rbindlist()
+  txt <- RCurl::getURL("https://www.emol.com/especiales/2020/internacional/coronavirus/guia-basica.asp", .opts=list(followlocation=TRUE, ssl.verifyhost=FALSE, ssl.verifypeer=FALSE),.encoding='ISO-8859-1')
+  out=read_html(txt) %>% html_nodes('body #inner-wrap #nota_tabla_emol') %>%  html_nodes('table') %>% html_table() %>% data.table::rbindlist()
   data.table::setnames(out,old=names(out),new=c("COMUNA_RESIDENCIA_DESC","PASO"),skip_absent = TRUE)
   return(out)
 }
