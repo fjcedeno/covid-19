@@ -21,7 +21,7 @@ source("helper_hana.R", encoding = "UTF-8", local = TRUE)
 source("funciones.R", encoding = "UTF-8", local = TRUE)
 source('~/connections/connections.R', encoding = "UTF-8", local = TRUE)
 #Load Xlsx
-emolRegion<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/minSalRegiones.xlsx")
+emolRegion<-openxlsx::read.xlsx("~/covid-19/xlsx/minSalRegiones.xlsx")
 start_time=Sys.time()
 print(start_time)
 hanaConnection<-hana_connect()
@@ -520,7 +520,7 @@ emol[,Paso_prob:=raster::trim(Paso_prob),by=seq_len(nrow(emol))]
 emol[,Paso_prob:=tail(unlist(strsplit(Paso_prob," ")),1),seq_len(nrow(emol))]
 emol[,Paso_prob:=raster::trim(Paso_prob),by=seq_len(nrow(emol))]
 
-emolComuna<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/emolComuna.xlsx")
+emolComuna<-openxlsx::read.xlsx("~/covid-19/xlsx/emolComuna.xlsx")
 for(j in 1:nrow(emolComuna))
 { 
   emol[COMUNA_RESIDENCIA== emolComuna$emol_comuna[j],COMUNA_RESIDENCIA:=emolComuna$comuna[j]]
@@ -549,7 +549,7 @@ if(EMOL)
 
 #
 
-emolEtapas<-openxlsx::read.xlsx("~/PROYECTO_ALLOCATION/xlsx/emolEtapas.xlsx")
+emolEtapas<-openxlsx::read.xlsx("~/covid-19/xlsx/emolEtapas.xlsx")
 for(i in 1:nrow(emolEtapas))
 {
   emol[Paso_prob==emolEtapas$ETAPAS_DESC[i],PASO:=emolEtapas$ETAPAS[i]]
