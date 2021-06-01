@@ -29,6 +29,7 @@ hanaConnection<-hana_connect()
 actualizar=TRUE
 descargar=TRUE
 borrar=TRUE
+EMOL=TRUE
 marcoTotal<-data.table::setDT(openxlsx::read.xlsx("./xlsx/divisionPoliticoTerritorial.xlsx") )
 
 #1.	DESCARGAR DATA DEL MIMISTERIO DE SALUD ----
@@ -529,7 +530,7 @@ emol<-MARCO_COMUNAL[emol,on="COMUNA_RESIDENCIA"]
 emolDaily<-data.table::copy(emol)
 emolDaily[,FECHA:=Sys.Date()]
 emolDaily<-emolDaily[,c("CODIGO_COMUNA","PASO","FECHA"),with=FALSE]
-if(actualizar)
+if(EMOL)
 {
   if(DBI::dbExistsTable(hanaConnection, "FC_GEOLOCALIZACION_FASE_ACTUAL_EMOL_DAILY"))
   {
@@ -556,7 +557,7 @@ for(i in 1:nrow(emolEtapas))
 #
 emol<-emol[,c("CODIGO_COMUNA","COMUNA_RESIDENCIA","PASO","Paso_prob"),with=FALSE]
 emol[,Paso_prob:=!is.na(Paso_prob)]
-if(actualizar)
+if(EMOL)
 {
   if(DBI::dbExistsTable(hanaConnection, "FC_GEOLOCALIZACION_FASE_ACTUAL_EMOL"))
   {
