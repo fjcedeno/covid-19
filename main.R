@@ -26,9 +26,9 @@ start_time=Sys.time()
 print(start_time)
 hanaConnection<-hana_connect()
 
-actualizar=TRUE
 descargar=TRUE
-borrar=TRUE
+actualizar=TRUE
+borrar=TRUE 
 EMOL=TRUE
 marcoTotal<-data.table::setDT(openxlsx::read.xlsx("./xlsx/divisionPoliticoTerritorial.xlsx") )
 
@@ -39,7 +39,8 @@ if(descargar)
   html<-"https://github.com/MinCiencia/Datos-COVID19"
   productos<-scraper_files_product(html)
   productos<-unique(productos)
-  productos<-productos[c(1,2,15,41,4,7,52,54,18,65,25,13,19,26,27,45,74)]
+  productos<-productos[productos%in%paste0("producto",c(19,1,2,15,41,4,7,52,54,18,65,25,13,26,27,45,74))]
+  
   descripcion_productos<-scraper_files_desc(html)
   descripcion<-data.table::data.table(descripcion_productos=descripcion_productos)
   descripcion[,producto:=unlist(strsplit(descripcion_productos,"-"))[1],by=seq_len(nrow(descripcion))]
@@ -137,7 +138,7 @@ CasosActualesPorComuna<-CasosActualesPorComuna[,.(Casos_actuales_prom=mean(Casos
 CasosActualesPorComuna<-A[CasosActualesPorComuna,on=c("semana","codigo_comuna")]
 CasosActualesPorComuna<-B[CasosActualesPorComuna,on=c("semana","codigo_comuna")]
 
-data.table::fwrite(CasosActualesPorComuna,file="caso_activos.csv",sep=";",dec=",")
+data.table::fwrite(CasosActualesPorComuna,file="~/covid-19/data_procesada/caso_activos.csv",sep=";",dec=",")
 
 if(actualizar)
 {
