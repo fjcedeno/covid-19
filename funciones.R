@@ -254,7 +254,7 @@ funciones_dinamica_contagios<-function(dat,territorio="CODIGO_COMUNA"){
   dat[,C:=100000*(PM7/POBLACION),by=seq_len(nrow(dat))]
   dat=unique(dat[,c(territorio,"POBLACION","FECHA","CASOS","C","PM7"),with=FALSE])
   dat<-na.omit(dat)
-  dat<-utils::tail(dat,38)
+  dat<-utils::tail(dat,50)
   
   
   incidencias<-dat[,c("FECHA","CASOS"),with=FALSE]
@@ -749,10 +749,14 @@ funciones_umbral_velocidad_pred<-function(dat,pred_used,nSemanas)
 
 funciones_umbral_velocidad_pred_parallel<-function(X,nSemanas,PASO_COMUNAL)
 {
-  dat<-X$dat
-  pred_used<-X$pred_used
+  dat<-data.table::copy(X$dat)
+  pred_used<-data.table::copy(X$pred_used)
+  data.table::setorderv(pred_used,"FECHA")
   data.table::setnames(pred_used,"fit","CASOS")
-  pred_used[,FECHA:=as.Date(seq(as.Date(max(dat$FECHA))+1,length.out=nrow(pred_used),by="days"))][,c('lower','upper','METODO','ME','RMSE','MAE','MPE','MAPE','MASE','ACF1'):=NULL]
+  pred_used[,CASOS:=round(CASOS,0)]
+  #pred_used[,FECHA:=as.Date(seq(as.Date(max(dat$FECHA))+1,length.out=nrow(pred_used),by="days"))][,c('lower','upper','METODO','ME','RMSE','MAE','MPE','MAPE','MASE','ACF1'):=NULL]
+  pred_used[,FECHA:=as.Date(FECHA)]
+  pred_used[,c('lower','upper','METODO','ME','RMSE','MAE','MPE','MAPE','MASE','ACF1'):=NULL]
   dat<-data.table::rbindlist(list(dat,pred_used),fill = TRUE)
   dat[ , (names(dat)) := lapply(.SD, zoo::na.locf), .SDcols = names(dat)]
   
@@ -768,8 +772,11 @@ funciones_umbral_velocidad_pred_parallel<-function(X,nSemanas,PASO_COMUNAL)
   
   out_melt<-data.table::melt(out,id.vars=c("SEMANA","CODIGO_COMUNA"), measure.vars=c("NORMAL","OPTIMISTA","PESIMISTA"),
                              variable.name = "ESCENARIOS", value.name = "R_UMBRAL")
-  
-  out_melt<-PASO_COMUNAL[out_melt,on=c("SEMANA","CODIGO_COMUNA")]
+  PASO_COMUNAL[,FECHA_MAX:=max(SEMANA),by="CODIGO_COMUNA"]
+  PASO_COMUNAL_FILTER=PASO_COMUNAL[SEMANA==FECHA_MAX]
+  PASO_COMUNAL_FILTER[,FECHA_MAX:=NULL]
+  PASO_COMUNAL_FILTER[,SEMANA:=NULL]
+  out_melt<-PASO_COMUNAL_FILTER[out_melt,on="CODIGO_COMUNA"]
   out_melt[ , (names(out_melt)) := lapply(.SD, zoo::na.locf), .SDcols = names(out_melt)]
   
   out_melt_split<-split(out_melt,by="ESCENARIOS")

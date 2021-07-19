@@ -398,14 +398,19 @@ testCASOS_CONFIRMADO_REGIONAL<-data.table::rbindlist(testCASOS_CONFIRMADO_REGION
 testCASOS_CONFIRMADO_REGIONAL=testCASOS_CONFIRMADO_REGIONAL[, .SD[c(.N)], by=c("SEMANA","CODIGO_COMUNA","ESCENARIOS")][,c("SEMANA","CODIGO_COMUNA","ESCENARIOS",'DIMINUCION_SOTENIDA_2SEM','DIMINUCION_SOTENIDA_3SEM','TASA_PROYECTADA_FIT_50','TASA_PROYECTADA_FIT_25'),with=FALSE]
 
 SEMANAS<-rep(SEMANAS,3)
-
-for(i in unique(names(COVID_CASOS_CONFIRMADOS_COMUNAS_SPLIT)))
+if(TRUE)
 {
-  X<-list(dat=COVID_CASOS_CONFIRMADOS_COMUNAS_SPLIT[[i]],pred_used=COVID_CASOS_CONFIRMADOS_COMUNAS_SPLIT_TS_MOD_PREDICT[[i]])
-  testData[[i]]<-X
+  for(i in unique(names(COVID_CASOS_CONFIRMADOS_COMUNAS_SPLIT)))
+  {
+    #message(i)
+    X<-list(dat=data.table::copy(COVID_CASOS_CONFIRMADOS_COMUNAS_SPLIT[[i]]),pred_used=data.table::copy(COVID_CASOS_CONFIRMADOS_COMUNAS_SPLIT_TS_MOD_PREDICT[[i]]))
+    testData[[i]]<-X
+    #testData[[i]]<-funciones_umbral_velocidad_pred_parallel(X,nSemanas,PASO_COMUNAL)
+  }
+  
+  testData<-parallel::parLapply(cl=clust,X=testData,fun=funciones_umbral_velocidad_pred_parallel,nSemanas = nSemanas,PASO_COMUNAL=PASO_COMUNAL)
+  
 }
-
-testData<-parallel::parLapply(cl=clust,X=testData,fun=funciones_umbral_velocidad_pred_parallel,nSemanas = nSemanas,PASO_COMUNAL=PASO_COMUNAL)
 
 
 stopCluster(clust)
